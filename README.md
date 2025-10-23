@@ -10,12 +10,20 @@
 
 ```
 src/
-├── docs/            # 文档处理模块
-├── embedding/       # 向量化处理模块
-├── vector-store/    # 向量存储模块
-├── rag/             # RAG 核心逻辑模块
-├── app.module.ts    # 根模块
-└── app.module.ts    # 项目入口文件
+├── app.module.ts                 # 根模块，整合整个应用的所有模块
+├── main.ts                       # 应用入口文件，启动NestJS应用
+├── docs/                         # 文档相关功能模块
+│   ├── ingest/                   # 文档摄取处理模块（负责处理已上传文档的进一步操作）
+│   └── upload/                   # 文档上传模块（处理用户上传文档）
+└── rag/                          # RAG核心功能模块
+    ├── embedding/                # 嵌入服务模块（负责将文本转换为向量）
+    ├── llm/                      # 大语言模型服务模块（与LLM交互）
+    ├── qdrant/                   # Qdrant向量数据库服务模块（存储和检索向量数据）
+    ├── rag.controller.ts         # RAG控制器（处理HTTP请求）
+    ├── rag.service.ts            # RAG服务（业务逻辑处理）
+    ├── rag.module.ts             # RAG模块定义（导入所需子模块）
+    ├── rag.controller.spec.ts    # RAG控制器测试文件
+    └── rag.service.spec.ts       # RAG服务测试文件
 ```
 
 ## 🧩 模块详细说明
