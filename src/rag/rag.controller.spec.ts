@@ -13,6 +13,7 @@ describe('RagController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      imports: [EmbeddingModule, QdrantModule, LlmModule],
       controllers: [RagController],
       providers: [
         RagService,

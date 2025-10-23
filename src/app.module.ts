@@ -6,11 +6,10 @@ import { UploadModule } from './docs/upload/upload.module';
 
 @Module({
   imports: [
-    RagModule,
     ConfigModule.forRoot(),
+    RagModule,
     IngestModule,
-    UploadModule,
-  ],
+    UploadModule],
   controllers: [],
   providers: [],
 })
