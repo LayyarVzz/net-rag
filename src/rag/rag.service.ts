@@ -12,7 +12,7 @@ export class RagService {
     private readonly llm: LlmService,
   ) { }
 
-  getName() {
-    return this.embedding.name();
+  getEmbedQuery(query: string) {
+    return this.embedding.embedQuery(query);
   }
 }
