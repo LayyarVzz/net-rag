@@ -6,8 +6,8 @@ import { EmbeddingModule } from './embedding/embedding.module';
 import { LlmModule } from './llm/llm.module';
 
 @Module({
+  imports: [QdrantModule, EmbeddingModule, LlmModule],
   controllers: [RagController],
   providers: [RagService],
-  imports: [QdrantModule, EmbeddingModule, LlmModule],
 })
 export class RagModule { }

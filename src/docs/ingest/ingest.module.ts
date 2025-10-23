@@ -6,4 +6,4 @@ import { IngestController } from './ingest.controller';
   controllers: [IngestController],
   providers: [IngestService],
 })
-export class IngestModule {}
+export class IngestModule { }

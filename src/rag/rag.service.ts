@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { EmbeddingService } from './embedding/embedding.service'
+import { EmbeddingService } from './embedding/embedding.service';
 import { QdrantService } from './qdrant/qdrant.service';
 import { LlmService } from './llm/llm.service';
-
 
 @Injectable()
 export class RagService {
