@@ -11,7 +11,18 @@ import { LlmModule } from './llm/llm.module';
 describe('RagController', () => {
   let controller: RagController;
 
+  // 保存原始环境变量
+  const originalEnv = process.env;
+
   beforeEach(async () => {
+    // 模拟 process.env
+    process.env = {
+      ...originalEnv,
+      EMBEDDING_MODEL: 'text-embedding-ada-002',
+      BASE_URL: 'https://api.openai.com/v1',
+      API_KEY: 'test-api-key',
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       imports: [EmbeddingModule, QdrantModule, LlmModule],
       controllers: [RagController],
