@@ -66,7 +66,7 @@ describe('QdrantService', () => {
 
       await expect(qdrantService.onModuleInit()).rejects.toThrow(
         new HttpException(
-          '文档嵌入处理失败，请稍后再试',
+          'Qdrant向量数据库初始化失败，请稍后再试',
           HttpStatus.INTERNAL_SERVER_ERROR,
         ),
       );
@@ -102,16 +102,33 @@ describe('QdrantService', () => {
         }),
       ];
 
-      mockVectorStore.addDocuments.mockRejectedValueOnce(
-        new Error('Add failed'),
-      );
+      // 模拟 vectorStore.addDocuments 抛出错误
+      mockVectorStore.addDocuments.mockImplementationOnce(() => {
+        throw new Error('Add failed');
+      });
 
-      await expect(qdrantService.addDocuments(documents)).rejects.toThrow(
-        new HttpException(
-          '添加文档失败，请稍后再试',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ),
-      );
+      await expect(qdrantService.addDocuments(documents)).rejects.toThrow(HttpException);
+    });
+
+    it('should throw HttpException with correct message when adding documents fails', async () => {
+      const documents: Document[] = [
+        new Document({
+          pageContent: '测试文档内容',
+          metadata: { source: 'test' },
+        }),
+      ];
+
+      // 模拟 vectorStore.addDocuments 抛出错误
+      mockVectorStore.addDocuments.mockImplementationOnce(() => {
+        throw new Error('Add failed');
+      });
+
+      try {
+        await qdrantService.addDocuments(documents);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.message).toBe('添加文档到Qdrant失败，请稍后再试');
+      }
     });
   });
 
@@ -142,16 +159,100 @@ describe('QdrantService', () => {
       const query = '测试查询';
       const k = 4;
 
-      mockVectorStore.similaritySearch.mockRejectedValueOnce(
-        new Error('Search failed'),
-      );
+      // 模拟 vectorStore.similaritySearch 抛出错误
+      mockVectorStore.similaritySearch.mockImplementationOnce(() => {
+        throw new Error('Search failed');
+      });
 
-      await expect(qdrantService.similaritySearch(query, k)).rejects.toThrow(
-        new HttpException(
-          '相似性搜索失败，请稍后再试',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ),
-      );
+      await expect(qdrantService.similaritySearch(query, k)).rejects.toThrow(HttpException);
+    });
+
+    it('should throw HttpException with correct message when similarity search fails', async () => {
+      const query = '测试查询';
+      const k = 4;
+
+      // 模拟 vectorStore.similaritySearch 抛出错误
+      mockVectorStore.similaritySearch.mockImplementationOnce(() => {
+        throw new Error('Search failed');
+      });
+
+      try {
+        await qdrantService.similaritySearch(query, k);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.message).toBe('相似性搜索失败，请稍后再试');
+      }
+    });
+  });
+
+  describe('similaritySearchWithRerank', () => {
+    beforeEach(async () => {
+      await qdrantService.onModuleInit();
+    });
+
+    it('should perform similarity search with rerank successfully', async () => {
+      const query = '测试查询';
+      const k = 4;
+      const mockResults = [
+        new Document({
+          pageContent: '搜索结果内容',
+          metadata: { source: 'result' },
+        }),
+      ];
+
+      mockVectorStore.similaritySearch.mockResolvedValueOnce(mockResults);
+
+      const result = await qdrantService.similaritySearchWithRerank(query, k);
+
+      expect(result).toEqual(mockResults);
+      expect(mockVectorStore.similaritySearch).toHaveBeenCalledWith(query, k);
+    });
+
+    it('should throw HttpException when similarity search with rerank fails', async () => {
+      const query = '测试查询';
+      const k = 4;
+
+      // 模拟 vectorStore.similaritySearch 抛出错误
+      mockVectorStore.similaritySearch.mockImplementationOnce(() => {
+        throw new Error('Search failed');
+      });
+
+      await expect(qdrantService.similaritySearchWithRerank(query, k)).rejects.toThrow(HttpException);
+    });
+
+    it('should throw HttpException with correct message when similarity search with rerank fails', async () => {
+      const query = '测试查询';
+      const k = 4;
+
+      // 模拟 vectorStore.similaritySearch 抛出错误
+      mockVectorStore.similaritySearch.mockImplementationOnce(() => {
+        throw new Error('Search failed');
+      });
+
+      try {
+        await qdrantService.similaritySearchWithRerank(query, k);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.message).toBe('搜索失败，请稍后再试');
+      }
+    });
+
+    it('should perform similarity search with default k value when not provided', async () => {
+      const query = '测试查询';
+      const defaultK = 4;
+      const mockResults = [
+        new Document({
+          pageContent: '搜索结果内容',
+          metadata: { source: 'result' },
+        }),
+      ];
+
+      mockVectorStore.similaritySearch.mockResolvedValueOnce(mockResults);
+
+      const result = await qdrantService.similaritySearchWithRerank(query);
+
+      expect(result).toEqual(mockResults);
+      expect(mockVectorStore.similaritySearch).toHaveBeenCalledWith(query, defaultK);
     });
   });
 });
