@@ -3,6 +3,7 @@
 /node_modules
 /build
 /docker_project_net
+/uploads
 
 # Logs
 logs
