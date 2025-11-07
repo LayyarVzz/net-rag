@@ -13,10 +13,12 @@ describe('UploadController', () => {
         {
           provide: UploadService,
           useValue: {
-            echoFile: jest.fn().mockReturnValue({
-              message: '文件上传成功',
-              originalname: 'test.pdf',
-              filename: '123456.pdf',
+            echoFile: jest.fn(),
+            dleFile: jest.fn().mockReturnValue({
+              message: '文件删除成功',
+              filename: 'test.pdf',
+              filePath: './uploads/pdf/test.pdf',
+              filetype: 'pdf',
             }),
           },
         },
@@ -31,39 +33,27 @@ describe('UploadController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('uploadTestFile', () => {
-    it('should upload a test file', () => {
-      const mockFile = {
-        originalname: 'test.jpg',
-        filename: '123456.jpg',
-      } as Express.Multer.File;
-
-      const result = controller.uploadTestFile(mockFile);
-
-      expect(service.echoFile).toHaveBeenCalledWith(mockFile);
-      expect(result).toEqual({
-        message: '文件上传成功',
-        originalname: 'test.pdf',
-        filename: '123456.pdf',
-      });
-    });
-  });
-
   describe('uploadPDF', () => {
     it('should upload a PDF file', () => {
       const mockFile = {
         originalname: 'document.pdf',
-        filename: '789012.pdf',
+        filename: 'document.pdf',
+        mimetype: 'application/pdf',
       } as Express.Multer.File;
+
+      const mockReturnValue = {
+        message: '文件上传成功',
+        originalname: 'document.pdf',
+        filename: 'document.pdf',
+        mimetype: 'application/pdf',
+      };
+
+      (service.echoFile as jest.Mock).mockReturnValueOnce(mockReturnValue);
 
       const result = controller.uploadPDF(mockFile);
 
       expect(service.echoFile).toHaveBeenCalledWith(mockFile);
-      expect(result).toEqual({
-        message: '文件上传成功',
-        originalname: 'test.pdf',
-        filename: '123456.pdf',
-      });
+      expect(result).toEqual(mockReturnValue);
     });
   });
 
@@ -71,16 +61,60 @@ describe('UploadController', () => {
     it('should upload a DOCX file', () => {
       const mockFile = {
         originalname: 'document.docx',
-        filename: '345678.docx',
+        filename: 'document.docx',
+        mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       } as Express.Multer.File;
+
+      const mockReturnValue = {
+        message: '文件上传成功',
+        originalname: 'document.docx',
+        filename: 'document.docx',
+        mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      };
+
+      (service.echoFile as jest.Mock).mockReturnValueOnce(mockReturnValue);
 
       const result = controller.uploadDOCX(mockFile);
 
       expect(service.echoFile).toHaveBeenCalledWith(mockFile);
-      expect(result).toEqual({
+      expect(result).toEqual(mockReturnValue);
+    });
+  });
+
+  describe('uploadMD', () => {
+    it('should upload a MD file', () => {
+      const mockFile = {
+        originalname: 'document.md',
+        filename: 'document.md',
+        mimetype: 'text/markdown',
+      } as Express.Multer.File;
+
+      const mockReturnValue = {
         message: '文件上传成功',
-        originalname: 'test.pdf',
-        filename: '123456.pdf',
+        originalname: 'document.md',
+        filename: 'document.md',
+        mimetype: 'text/markdown',
+      };
+
+      (service.echoFile as jest.Mock).mockReturnValueOnce(mockReturnValue);
+
+      const result = controller.uploadMD(mockFile);
+
+      expect(service.echoFile).toHaveBeenCalledWith(mockFile);
+      expect(result).toEqual(mockReturnValue);
+    });
+  });
+
+  describe('deleteFile', () => {
+    it('should delete a test file', () => {
+      const result = controller.deleteFile('pdf', 'test.pdf');
+
+      expect(service.dleFile).toHaveBeenCalledWith('pdf', 'test.pdf');
+      expect(result).toEqual({
+        message: '文件删除成功',
+        filename: 'test.pdf',
+        filePath: './uploads/pdf/test.pdf',
+        filetype: 'pdf',
       });
     });
   });
