@@ -8,7 +8,7 @@ import { ParseDocModule } from './docs/parse-doc/parse-doc.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    RagModule,
+    //RagModule,
     IngestModule,
     UploadModule,
     ParseDocModule],
