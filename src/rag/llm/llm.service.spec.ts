@@ -2,20 +2,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LlmService } from './llm.service';
 
-// 在测试前设置环境变量
-process.env.BASE_URL = 'http://localhost:3000/v1';
-process.env.LLM_MODEL = 'qwen3:1.7b';
-process.env.API_KEY = 'sk-VigNRtfFYhZmRm1I9964D5399e844dB78fAb07B6Ea675816';
-
 describe('LLMService', () => {
   let service: LlmService;
 
+  // 保存原始环境变量
+  const originalEnv = process.env;
+
   beforeEach(async () => {
+    // 模拟 process.env
+    process.env = {
+      ...originalEnv,
+      BASE_URL: 'http://localhost:3000/v1',
+      LLM_MODEL: 'qwen3:1.7b',
+      API_KEY: 'test-api_key',
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [LlmService],
     }).compile();
 
     service = module.get<LlmService>(LlmService);
+  });
+
+  afterEach(() => {
+    // 恢复原始环境变量
+    process.env = originalEnv;
   });
 
   it('should be defined', () => {

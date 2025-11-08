@@ -66,7 +66,7 @@ describe('QdrantService', () => {
 
       await expect(qdrantService.onModuleInit()).rejects.toThrow(
         new HttpException(
-          '文档嵌入处理失败，请稍后再试',
+          'Qdrant向量数据库初始化失败,请稍后再试',
           HttpStatus.INTERNAL_SERVER_ERROR,
         ),
       );
@@ -108,7 +108,7 @@ describe('QdrantService', () => {
 
       await expect(qdrantService.addDocuments(documents)).rejects.toThrow(
         new HttpException(
-          '添加文档失败，请稍后再试',
+          '添加文档到Qdrant失败,请稍后再试',
           HttpStatus.INTERNAL_SERVER_ERROR,
         ),
       );
