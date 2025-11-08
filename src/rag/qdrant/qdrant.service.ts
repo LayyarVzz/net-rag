@@ -27,7 +27,7 @@ export class QdrantService implements OnModuleInit {
       this.logger.error('Qdrant向量数据库初始化失败', error.message);
       // 抛出http异常
       throw new HttpException(
-        'Qdrant向量数据库初始化失败，请稍后再试',
+        'Qdrant向量数据库初始化失败,请稍后再试',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -46,7 +46,7 @@ export class QdrantService implements OnModuleInit {
       //输出错误信息
       this.logger.error('添加文档到Qdrant失败', error.message);
       throw new HttpException(
-        '添加文档到Qdrant失败，请稍后再试',
+        '添加文档到Qdrant失败,请稍后再试',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
