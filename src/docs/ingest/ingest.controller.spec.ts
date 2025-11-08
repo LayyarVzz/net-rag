@@ -63,7 +63,7 @@ describe('IngestController', () => {
     });
 
     it('should throw HttpException when no file provided', async () => {
-      await expect(controller.uploadAndIngest(null))
+      await expect(controller.uploadAndIngest(undefined))
         .rejects
         .toThrow('未提供文件');
     });
