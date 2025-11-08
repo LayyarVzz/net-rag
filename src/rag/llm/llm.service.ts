@@ -4,37 +4,6 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 
-/**
- * LLM 服务 - 基于 LangChain 的大语言模型接口服务
- * 
- * 核心功能接口：
- * 
- * Prompt 模板管理：
- * - addPromptTemplate() - 添加自定义提示词模板
- * - getPromptTemplate() - 获取指定模板配置
- * - getAvailablePrompts() - 获取所有可用模板名称
- * 
- * 智能对话：
- * - generateWithPrompt() - 使用指定模板生成响应
- * - chat() - 带历史上下文的聊天对话（里面调用generateWithPrompt()和普通对话提示general-chat）
- * - directInvoke() - 直接调用模型原始接口
- * 
- * 检索增强功能：
- * - generateRetrievalQuery() - 生成知识检索查询词
- * - summarizeRetrievalResults() - 总结检索结果为自然语言
- * 
- * 文档处理：
- * - generateStatisticsReport() - 生成统计数据分析报告
- * - generateDocumentUploadGuide() - 生成文档上传指南
- * 
- * 多模态支持：
- * - multimodalUnderstanding() - 多模态内容理解（图片+文本）
- * 
- * 系统管理：
- * - getStatus() - 获取服务状态和配置信息
- * - reinitialize() - 重新初始化模型（热更新）
- */
-
 // 定义 Prompt 模板接口
 export interface PromptTemplate {
   name: string;
@@ -66,10 +35,9 @@ export class LlmService {
    */
   private initializeModel(): void {
     try {
-      // OneAPI 需要真实的 API_KEY 和正确的 baseURL
       const apiKey = process.env.API_KEY;
-      const baseURL = process.env.BASE_URL; // http://localhost:3000/v1
-      const modelName = process.env.LLM_MODEL; // qwen3:1.7b
+      const baseURL = process.env.BASE_URL;
+      const modelName = process.env.LLM_MODEL;
 
       if (!apiKey) {
         throw new Error('API_KEY is required for OneAPI service');
@@ -82,11 +50,6 @@ export class LlmService {
         maxTokens: 2000,
         configuration: {
           baseURL: baseURL,
-          // OneAPI 可能需要额外的配置
-          defaultHeaders: {
-            'Content-Type': 'application/json',
-            // 如果有需要，可以添加其他 headers
-          },
         },
         maxRetries: 2,
         timeout: 30000,
@@ -106,98 +69,6 @@ export class LlmService {
   private initializeDefaultPrompts(): void {
     const defaultPrompts: PromptTemplate[] = [
       {
-        name: 'knowledge-retrieval-query',
-        description: '基于用户问题生成检索关键词，用于知识检索',
-        template: `基于以下信息生成检索查询词：
-问题：{userQuestion}
-上下文：{context}
-返回结果数量：{topK}
-
-要求：
-1. 生成精准的检索关键词或短语，突出核心需求
-2. 考虑上下文相关性，避免歧义
-3. 输出格式仅保留查询词，无需额外说明
-
-检索查询词：`,
-        inputVariables: ['userQuestion', 'context', 'topK']
-      },
-      {
-        name: 'retrieval-result-summary',
-        description: '将检索结果整理为自然语言回答',
-        template: `请基于检索结果回答用户问题，遵循以下规则：
-
-用户问题：{userQuestion}
-
-检索到的文档片段：
-{retrievalResults}
-
-处理规则：
-1. 优先使用高相似度的结果（≥0.7），重要信息用引号标注
-2. 明确标注信息来源（文档路径和片段索引）
-3. 合并重复内容，按逻辑顺序组织
-4. 若结果为空或相似度均<0.7，如实告知用户"未找到足够相关的文档片段"
-5. 严格避免编造信息，对不确定的内容需明确说明
-6. 回答要简洁、准确、有依据
-
-基于检索结果的回答：`,
-        inputVariables: ['userQuestion', 'retrievalResults']
-      },
-      {
-        name: 'document-statistics-report',
-        description: '将统计数据格式化为可读报告',
-        template: `将以下统计数据转换为{detail}报告：
-
-原始数据：{statsData}
-
-报告要求：
-1. {detail === 'detailed' ? '包含总文档数、总片段数、总存储大小及每个文档的详细信息' : '仅包含总文档数和总片段数的概览'}
-2. 使用自然语言描述，避免直接罗列JSON数据
-3. 格式清晰，使用适当的段落和项目符号
-4. 突出关键指标，便于用户快速理解
-
-统计报告：`,
-        inputVariables: ['statsData', 'detail']
-      },
-      {
-        name: 'document-ingest-guide',
-        description: '指导用户正确上传文档',
-        template: `请指导用户使用文档上传功能：
-
-文件类型：{fileType}
-文件URI示例：{fileUri}
-文件Buffer说明：{fileBuffer}
-
-上传指南：
-1. 支持两种上传方式（二选一）：
-   - 预签名URL：提供文件的预签名URL
-   - 二进制Buffer：直接传递文件的二进制数据
-
-2. 确认文件格式有效（仅支持PDF、DOCX）
-
-3. 调用示例：
-   \`\`\`javascript
-   // 方式1：使用预签名URL上传
-   {
-     "fileUri": "{fileUri}"
-   }
-
-   // 方式2：使用文件Buffer上传  
-   {
-     "fileBuffer": {fileBuffer}
-   }
-   \`\`\`
-
-4. 工具处理流程说明：
-   - 自动获取文件内容
-   - 验证文件合法性并检查是否重复上传
-   - 解析文件内容并切分成片段
-   - 生成向量嵌入并存储到向量数据库
-   - 返回入库结果
-
-请根据以上信息生成友好的用户指导：`,
-        inputVariables: ['fileType', 'fileUri', 'fileBuffer']
-      },
-      {
         name: 'general-chat',
         description: '通用聊天对话',
         template: `你是一个有帮助的AI助手。请根据以下对话历史和用户问题提供有用的回答。
@@ -211,17 +82,23 @@ export class LlmService {
         inputVariables: ['chatHistory', 'userQuestion']
       },
       {
-        name: 'multimodal-understanding',
-        description: '多模态内容理解（包含图片）',
-        template: `你是一个能够理解图片和文本的多模态AI助手。
+        name: 'rag-chat',
+        description: '基于检索结果的对话',
+        template: `请基于以下检索结果回答用户问题：
 
-用户输入：{userInput}
-图片内容：{imageDescriptions}
+用户问题：{userQuestion}
 
-请综合分析文本和图片内容，提供全面的回答。如果图片中包含重要信息，请在回答中详细描述。
+相关文档片段：
+{chunks}
+
+回答要求：
+1. 基于提供的文档片段回答问题
+2. 如果文档片段中包含相关信息，请引用这些信息
+3. 如果文档片段中没有足够信息，请如实告知用户
+4. 回答要简洁、准确、有依据
 
 回答：`,
-        inputVariables: ['userInput', 'imageDescriptions']
+        inputVariables: ['userQuestion', 'chunks']
       }
     ];
 
@@ -301,10 +178,6 @@ export class LlmService {
     userQuestion: string, 
     chatHistory: ChatMessage[] = []
   ): Promise<string> {
-    if (!this.isInitialized) {
-      throw new Error('LLM service not initialized');
-    }
-
     const historyString = chatHistory
       .map(msg => `${msg.role}: ${msg.content}`)
       .join('\n');
@@ -316,71 +189,15 @@ export class LlmService {
   }
 
   /**
-   * 生成检索查询词
+   * 基于检索结果的聊天
    */
-  async generateRetrievalQuery(
+  async ragChat(
     userQuestion: string,
-    context?: string,
-    topK: number = 5
+    chunks: string[]
   ): Promise<string> {
-    return this.generateWithPrompt('knowledge-retrieval-query', {
+    return this.generateWithPrompt('rag-chat', {
       userQuestion,
-      context: context || '无额外上下文',
-      topK
-    });
-  }
-
-  /**
-   * 总结检索结果
-   */
-  async summarizeRetrievalResults(
-    userQuestion: string,
-    retrievalResults: any[]
-  ): Promise<string> {
-    return this.generateWithPrompt('retrieval-result-summary', {
-      userQuestion,
-      retrievalResults: JSON.stringify(retrievalResults, null, 2)
-    });
-  }
-
-  /**
-   * 生成统计报告
-   */
-  async generateStatisticsReport(
-    statsData: any,
-    detailed: boolean = false
-  ): Promise<string> {
-    return this.generateWithPrompt('document-statistics-report', {
-      statsData: JSON.stringify(statsData, null, 2),
-      detail: detailed ? 'detailed' : 'brief'
-    });
-  }
-
-  /**
-   * 生成文档上传指南
-   */
-  async generateDocumentUploadGuide(
-    fileType: string,
-    fileUri?: string,
-    fileBuffer?: string
-  ): Promise<string> {
-    return this.generateWithPrompt('document-ingest-guide', {
-      fileType,
-      fileUri: fileUri || 'https://example.com/presigned-url/document.pdf',
-      fileBuffer: fileBuffer || 'fs.readFileSync(\'/path/to/your/document.pdf\')'
-    });
-  }
-
-  /**
-   * 多模态理解方法（预留接口）
-   */
-  async multimodalUnderstanding(
-    userInput: string,
-    imageDescriptions: string[] = []
-  ): Promise<string> {
-    return this.generateWithPrompt('multimodal-understanding', {
-      userInput,
-      imageDescriptions: imageDescriptions.join('; ')
+      chunks: chunks.join('\n\n')
     });
   }
 
@@ -424,8 +241,8 @@ export class LlmService {
   } {
     return {
       initialized: this.isInitialized,
-      model: process.env.LLM_MODEL || 'llama2',
-      baseURL: process.env.BASE_URL || 'http://localhost:11434/v1',
+      model: process.env.LLM_MODEL || 'unknown',
+      baseURL: process.env.BASE_URL || 'unknown',
       promptCount: this.promptTemplates.size,
       availablePrompts: this.getAvailablePrompts()
     };
