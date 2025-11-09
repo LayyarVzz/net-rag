@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as mammoth from 'mammoth';
+import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class ParseDocService {
       const ext = path.extname(filePath).toLowerCase();
       const fileName = path.basename(filePath, ext);
       const dir = path.dirname(filePath);
-      
+
       const newFilePath = path.join(dir, `${fileName}-parsed.md`);
 
       let content = '';
@@ -40,7 +40,7 @@ export class ParseDocService {
 
       content = this.removeImages(content);
       await fs.writeFile(newFilePath, content, 'utf-8');
-      
+
       console.log(`文件转换完成: ${newFilePath}`);
     } catch (error) {
       throw new Error(`文档解析失败: ${error.message}`);
@@ -89,7 +89,7 @@ export class ParseDocService {
    */
   private htmlToMarkdown(html: string): string {
     let markdown = html.replace(/<img[^>]*>/g, '');
-    
+
     markdown = markdown
       .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1\n\n')
       .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1\n\n')
