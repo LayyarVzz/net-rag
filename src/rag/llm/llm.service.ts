@@ -26,7 +26,7 @@ export class LlmService {
     try {
       const apiKey = process.env.API_KEY;
       const baseURL = process.env.BASE_URL;
-      const modelName = process.env.LLM_MODEL;
+      const model = process.env.LLM_MODEL;
 
       if (!apiKey) {
         throw new Error('API_KEY is required');
@@ -34,23 +34,19 @@ export class LlmService {
       if (!baseURL) {
         throw new Error('BASE_URL is required');
       }
-      if (!modelName) {
-        throw new Error('LLM_MODEL_NAME is required');
+      if (!model) {
+        throw new Error('LLM_MODEL is required');
       }
 
       this.chatModel = new ChatOpenAI({
-        openAIApiKey: apiKey,
-        modelName: modelName,
-        temperature: 0.1,
-        maxTokens: 2000,
+        model: model,
         configuration: {
           baseURL: baseURL,
-        },
-        maxRetries: 2,
-        timeout: 30000,
+          apiKey: apiKey
+        }
       });
 
-      this.logger.log(`LLM service initialized with OneAPI: ${modelName} at ${baseURL}`);
+      this.logger.log(`LLM service initialized with OneAPI: ${model} at ${baseURL}`);
     } catch (error) {
       this.logger.error('Failed to initialize LLM service with OneAPI', error);
       throw error;
@@ -60,10 +56,7 @@ export class LlmService {
   /**
    * 通用聊天方法
    */
-  async chat(
-    userQuestion: string, 
-    chatHistory: ChatMessage[] = []
-  ): Promise<string> {
+  async chat(userQuestion: string, chatHistory: ChatMessage[]): Promise<string> {
     try {
       const historyString = chatHistory
         .map(msg => `${msg.role}: ${msg.content}`)
@@ -72,20 +65,20 @@ export class LlmService {
       const template = `你是一个有帮助的AI助手。请根据以下对话历史和用户问题提供有用的回答。
 
 对话历史：
-{chatHistory}
+${chatHistory}
 
-当前问题：{userQuestion}
+当前问题：${userQuestion}
 
 请提供有帮助、准确且简洁的回答：`;
 
       const prompt = ChatPromptTemplate.fromTemplate(template);
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
-      
+
       const result = await chain.invoke({
         chatHistory: historyString || '无对话历史',
         userQuestion
       });
-      
+
       this.logger.log('Generated response successfully');
       return result;
     } catch (error) {
@@ -97,17 +90,14 @@ export class LlmService {
   /**
    * 基于检索结果的聊天
    */
-  async ragChat(
-    userQuestion: string,
-    chunks: string[]
-  ): Promise<string> {
+  async ragChat(userQuestion: string, chunks: string[]): Promise<string> {
     try {
       const template = `请基于以下检索结果回答用户问题：
 
-用户问题：{userQuestion}
+用户问题：${userQuestion}
 
 相关文档片段：
-{chunks}
+${chunks}
 
 回答要求：
 1. 基于提供的文档片段回答问题
@@ -119,12 +109,12 @@ export class LlmService {
 
       const prompt = ChatPromptTemplate.fromTemplate(template);
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
-      
+
       const result = await chain.invoke({
         userQuestion,
         chunks: chunks.join('\n\n')
       });
-      
+
       this.logger.log('Generated RAG response successfully');
       return result;
     } catch (error) {
@@ -151,7 +141,7 @@ export class LlmService {
 
       const prompt = ChatPromptTemplate.fromMessages(langchainMessages);
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
-      
+
       const result = await chain.invoke({});
       return result;
     } catch (error) {
