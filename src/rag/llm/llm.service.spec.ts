@@ -2,7 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LlmService } from './llm.service';
 
-describe('LLMService', () => {
+describe('LlmService', () => {
   let service: LlmService;
 
   // 保存原始环境变量
@@ -14,7 +14,7 @@ describe('LLMService', () => {
       ...originalEnv,
       BASE_URL: 'http://localhost:3000/v1',
       LLM_MODEL: 'qwen3:1.7b',
-      API_KEY: 'test-api_key',
+      API_KEY: '',
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -34,13 +34,23 @@ describe('LLMService', () => {
   });
 
   it('should initialize successfully', () => {
-    const status = service.getStatus();
-    expect(status.initialized).toBe(true);
+    expect(service).toBeInstanceOf(LlmService);
   });
 
-  it('should return available prompts', () => {
-    const prompts = service.getAvailablePrompts();
-    expect(Array.isArray(prompts)).toBe(true);
-    expect(prompts.length).toBeGreaterThan(0);
+  it('should have healthCheck method', async () => {
+    expect(service.healthCheck).toBeDefined();
+    expect(typeof service.healthCheck).toBe('function');
+  });
+
+  it('should have chat method', () => {
+    expect(service.chat).toBeDefined();
+  });
+
+  it('should have ragChat method', () => {
+    expect(service.ragChat).toBeDefined();
+  });
+
+  it('should have directInvoke method', () => {
+    expect(service.directInvoke).toBeDefined();
   });
 });

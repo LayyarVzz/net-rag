@@ -4,14 +4,6 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 
-// 定义 Prompt 模板接口
-export interface PromptTemplate {
-  name: string;
-  description: string;
-  template: string;
-  inputVariables: string[];
-}
-
 // 定义聊天消息接口
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -22,11 +14,8 @@ export interface ChatMessage {
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
   private chatModel: ChatOpenAI;
-  private isInitialized = false;
-  private promptTemplates: Map<string, PromptTemplate> = new Map();
 
   constructor() {
-    this.initializeDefaultPrompts();
     this.initializeModel();
   }
 
@@ -40,7 +29,13 @@ export class LlmService {
       const modelName = process.env.LLM_MODEL;
 
       if (!apiKey) {
-        throw new Error('API_KEY is required for OneAPI service');
+        throw new Error('API_KEY is required');
+      }
+      if (!baseURL) {
+        throw new Error('BASE_URL is required');
+      }
+      if (!modelName) {
+        throw new Error('LLM_MODEL_NAME is required');
       }
 
       this.chatModel = new ChatOpenAI({
@@ -55,7 +50,6 @@ export class LlmService {
         timeout: 30000,
       });
 
-      this.isInitialized = true;
       this.logger.log(`LLM service initialized with OneAPI: ${modelName} at ${baseURL}`);
     } catch (error) {
       this.logger.error('Failed to initialize LLM service with OneAPI', error);
@@ -64,27 +58,51 @@ export class LlmService {
   }
 
   /**
-   * 初始化默认的 prompt 模板
+   * 通用聊天方法
    */
-  private initializeDefaultPrompts(): void {
-    const defaultPrompts: PromptTemplate[] = [
-      {
-        name: 'general-chat',
-        description: '通用聊天对话',
-        template: `你是一个有帮助的AI助手。请根据以下对话历史和用户问题提供有用的回答。
+  async chat(
+    userQuestion: string, 
+    chatHistory: ChatMessage[] = []
+  ): Promise<string> {
+    try {
+      const historyString = chatHistory
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+
+      const template = `你是一个有帮助的AI助手。请根据以下对话历史和用户问题提供有用的回答。
 
 对话历史：
 {chatHistory}
 
 当前问题：{userQuestion}
 
-请提供有帮助、准确且简洁的回答：`,
-        inputVariables: ['chatHistory', 'userQuestion']
-      },
-      {
-        name: 'rag-chat',
-        description: '基于检索结果的对话',
-        template: `请基于以下检索结果回答用户问题：
+请提供有帮助、准确且简洁的回答：`;
+
+      const prompt = ChatPromptTemplate.fromTemplate(template);
+      const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
+      
+      const result = await chain.invoke({
+        chatHistory: historyString || '无对话历史',
+        userQuestion
+      });
+      
+      this.logger.log('Generated response successfully');
+      return result;
+    } catch (error) {
+      this.logger.error('Error in chat method', error);
+      throw new Error(`Failed to generate response: ${error.message}`);
+    }
+  }
+
+  /**
+   * 基于检索结果的聊天
+   */
+  async ragChat(
+    userQuestion: string,
+    chunks: string[]
+  ): Promise<string> {
+    try {
+      const template = `请基于以下检索结果回答用户问题：
 
 用户问题：{userQuestion}
 
@@ -97,119 +115,32 @@ export class LlmService {
 3. 如果文档片段中没有足够信息，请如实告知用户
 4. 回答要简洁、准确、有依据
 
-回答：`,
-        inputVariables: ['userQuestion', 'chunks']
-      }
-    ];
+回答：`;
 
-    defaultPrompts.forEach(prompt => {
-      this.promptTemplates.set(prompt.name, prompt);
-    });
-
-    this.logger.log(`Initialized ${this.promptTemplates.size} default prompt templates`);
-  }
-
-  /**
-   * 添加自定义 prompt 模板
-   */
-  addPromptTemplate(template: PromptTemplate): void {
-    this.promptTemplates.set(template.name, template);
-    this.logger.log(`Prompt template '${template.name}' added`);
-  }
-
-  /**
-   * 获取 prompt 模板
-   */
-  getPromptTemplate(name: string): PromptTemplate | undefined {
-    return this.promptTemplates.get(name);
-  }
-
-  /**
-   * 获取所有可用的 prompt 模板名称
-   */
-  getAvailablePrompts(): string[] {
-    return Array.from(this.promptTemplates.keys());
-  }
-
-  /**
-   * 使用特定 prompt 模板生成响应
-   */
-  async generateWithPrompt(
-    promptName: string, 
-    variables: Record<string, any>
-  ): Promise<string> {
-    if (!this.isInitialized) {
-      throw new Error('LLM service not initialized');
-    }
-
-    const template = this.promptTemplates.get(promptName);
-    if (!template) {
-      throw new Error(`Prompt template '${promptName}' not found`);
-    }
-
-    // 验证必需的输入变量
-    const missingVars = template.inputVariables.filter(
-      varName => !(varName in variables)
-    );
-    
-    if (missingVars.length > 0) {
-      throw new Error(
-        `Missing required variables for prompt '${promptName}': ${missingVars.join(', ')}`
-      );
-    }
-
-    try {
-      const prompt = ChatPromptTemplate.fromTemplate(template.template);
+      const prompt = ChatPromptTemplate.fromTemplate(template);
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
       
-      const result = await chain.invoke(variables);
-      this.logger.log(`Generated response using prompt '${promptName}'`);
+      const result = await chain.invoke({
+        userQuestion,
+        chunks: chunks.join('\n\n')
+      });
+      
+      this.logger.log('Generated RAG response successfully');
       return result;
     } catch (error) {
-      this.logger.error(`Error generating with prompt '${promptName}'`, error);
-      throw new Error(`Failed to generate response: ${error.message}`);
+      this.logger.error('Error in ragChat method', error);
+      throw new Error(`Failed to generate RAG response: ${error.message}`);
     }
-  }
-
-  /**
-   * 通用聊天方法
-   */
-  async chat(
-    userQuestion: string, 
-    chatHistory: ChatMessage[] = []
-  ): Promise<string> {
-    const historyString = chatHistory
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n');
-
-    return this.generateWithPrompt('general-chat', {
-      chatHistory: historyString || '无对话历史',
-      userQuestion
-    });
-  }
-
-  /**
-   * 基于检索结果的聊天
-   */
-  async ragChat(
-    userQuestion: string,
-    chunks: string[]
-  ): Promise<string> {
-    return this.generateWithPrompt('rag-chat', {
-      userQuestion,
-      chunks: chunks.join('\n\n')
-    });
   }
 
   /**
    * 直接调用模型（原始接口）
    */
   async directInvoke(messages: ChatMessage[]): Promise<string> {
-    if (!this.isInitialized) {
-      throw new Error('LLM service not initialized');
-    }
-
     try {
+      if (messages.length === 0) {
+        throw new Error('Messages array cannot be empty');
+      }
       const langchainMessages = messages.map(msg => {
         if (msg.role === 'user') {
           return { role: 'human', content: msg.content };
@@ -230,29 +161,16 @@ export class LlmService {
   }
 
   /**
-   * 检查服务状态
+   * 检查模型是否可用
    */
-  getStatus(): { 
-    initialized: boolean; 
-    model: string; 
-    baseURL: string;
-    promptCount: number;
-    availablePrompts: string[];
-  } {
-    return {
-      initialized: this.isInitialized,
-      model: process.env.LLM_MODEL || 'unknown',
-      baseURL: process.env.BASE_URL || 'unknown',
-      promptCount: this.promptTemplates.size,
-      availablePrompts: this.getAvailablePrompts()
-    };
-  }
-
-  /**
-   * 重新初始化模型（用于热更新配置）
-   */
-  async reinitialize(): Promise<void> {
-    this.isInitialized = false;
-    this.initializeModel();
+  async healthCheck(): Promise<boolean> {
+    try {
+      const testMessage = [{ role: 'user' as const, content: 'Hello' }];
+      await this.directInvoke(testMessage);
+      return true;
+    } catch (error) {
+      this.logger.error('Health check failed', error);
+      return false;
+    }
   }
 }
