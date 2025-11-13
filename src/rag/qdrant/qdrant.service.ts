@@ -58,7 +58,7 @@ export class QdrantService implements OnModuleInit {
    * @param k 返回结果数量，默认为 4
    * @returns DocumentInterface 数组
    */
-  async similaritySearch(query: string, k: number): Promise<DocumentInterface[]> {
+  async similaritySearch(query: string, k: number = 4): Promise<DocumentInterface[]> {
     try {
       //进行相似性搜索
       const res = await this.vectorStore.similaritySearch(query, k);
@@ -93,7 +93,33 @@ export class QdrantService implements OnModuleInit {
       throw new HttpException(
         '搜索失败，请稍后再试',
         HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      );  
     }
   }
+/**
+ * 相似性搜索并返回分数
+ * @param query 查询字符串
+ * @param k 返回结果数量，默认为 4
+ * @returns 包含文档和对应分数的数组
+ */
+async similaritySearchWithScore(query: string, k: number = 4): Promise<[DocumentInterface, number][]> {
+  try {
+    // 进行相似性搜索并获取分数
+    const res = await this.vectorStore.similaritySearchWithScore(query, k);
+    this.logger.log('带分数的相似性搜索成功');
+    // 返回结果
+    return res;
+  } catch (error) {
+    this.logger.error('带分数的相似性搜索失败', error.message);
+    throw new HttpException(
+      '搜索失败，请稍后再试',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
 }
+
+}
+
+
+
+  

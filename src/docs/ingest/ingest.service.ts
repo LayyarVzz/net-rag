@@ -54,7 +54,7 @@ export class IngestService {
      * @param overlap 重叠的字符数
      * @returns 分割后的文档块
      */
-    async splitMarkdown(content: string, maxChunkSize: number = 600,): Promise<string[]> {
+    async splitMarkdown(content: string, maxChunkSize: number = 1000,): Promise<string[]> {
         try {
             // 初始化结果数组
             const chunks: string[] = [];
