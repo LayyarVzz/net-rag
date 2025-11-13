@@ -84,7 +84,7 @@ export class IngestController {
       console.log('chunks的原文:\n', chunks);
 
     } catch (error) {
-      console.log('test error');
+      console.log('test error',error);
     }
   }
 }
