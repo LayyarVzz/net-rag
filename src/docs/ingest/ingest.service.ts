@@ -75,7 +75,6 @@ export class IngestService {
                     const header = lines[0] || '';
                     // 让每一块都以标题加换行符开头
                     let currentChunk = header + '\n';
-                    console.log('标题块',currentChunk)
 
                     // 处理剩余行
                     for (let i = 1; i < lines.length; i++) {
