@@ -15,6 +15,11 @@ export class LlmService {
   private readonly logger = new Logger(LlmService.name);
   private chatModel: ChatOpenAI;
 
+  // 存储对话历史
+  private chatHistory: ChatMessage[] = [];
+  // 最大对话轮数（每轮包含用户消息和助手回复）
+  private readonly maxHistoryRounds = 10;
+
   constructor() {
     this.initializeModel();
   }
@@ -54,18 +59,35 @@ export class LlmService {
   }
 
   /**
-   * 通用聊天方法
+   * 截断历史记录，保留最新的消息
    */
-  async chat(userQuestion: string, chatHistory: ChatMessage[]): Promise<string> {
+  private truncateHistory(): void {
+    const maxMessages = this.maxHistoryRounds * 2; // 每轮对话有2条消息（用户+助手）
+    
+    if (this.chatHistory.length > maxMessages) {
+      const removedCount = this.chatHistory.length - maxMessages;
+      this.chatHistory = this.chatHistory.slice(removedCount);
+      this.logger.log(`历史记录已截断，移除了 ${removedCount} 条旧消息，当前保留 ${this.chatHistory.length} 条消息`);
+    }
+  }
+
+  /**
+   * 通用聊天方法 - 内部自动维护历史
+   */
+  async chat(userQuestion: string): Promise<string> {
     try {
-      const historyString = chatHistory
+      // 添加用户消息到历史
+      this.chatHistory.push({ role: 'user', content: userQuestion });
+
+      // 构建对话历史字符串（在截断前构建，确保包含最新消息）
+      const historyString = this.chatHistory
         .map(msg => `${msg.role}: ${msg.content}`)
         .join('\n');
 
       const template = `你是一个有帮助的AI助手。请根据以下对话历史和用户问题提供有用的回答。
 
 对话历史：
-${chatHistory}
+${historyString}
 
 当前问题：${userQuestion}
 
@@ -79,7 +101,13 @@ ${chatHistory}
         userQuestion
       });
 
-      this.logger.log('Generated response successfully');
+      // 添加助手回复到历史
+      this.chatHistory.push({ role: 'assistant', content: result });
+
+      // 在完整的一轮对话结束后截断历史记录
+      this.truncateHistory();
+
+      this.logger.log(`Generated response successfully. 当前历史记录: ${this.chatHistory.length} 条消息`);
       return result;
     } catch (error) {
       this.logger.error('Error in chat method', error);
@@ -88,10 +116,13 @@ ${chatHistory}
   }
 
   /**
-   * 基于检索结果的聊天
+   * 基于检索结果的聊天 - 内部自动维护历史
    */
   async ragChat(userQuestion: string, chunks: string[]): Promise<string> {
     try {
+      // 添加用户消息到历史
+      this.chatHistory.push({ role: 'user', content: userQuestion });
+
       const template = `请基于以下检索结果回答用户问题：
 
 用户问题：${userQuestion}
@@ -115,7 +146,13 @@ ${chunks}
         chunks: chunks.join('\n\n')
       });
 
-      this.logger.log('Generated RAG response successfully');
+      // 添加助手回复到历史
+      this.chatHistory.push({ role: 'assistant', content: result });
+
+      // 在完整的一轮对话结束后截断历史记录
+      this.truncateHistory();
+
+      this.logger.log(`Generated RAG response successfully. 当前历史记录: ${this.chatHistory.length} 条消息`);
       return result;
     } catch (error) {
       this.logger.error('Error in ragChat method', error);
@@ -147,20 +184,6 @@ ${chunks}
     } catch (error) {
       this.logger.error('Error in direct model invocation', error);
       throw new Error(`Model invocation failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * 检查模型是否可用
-   */
-  async healthCheck(): Promise<boolean> {
-    try {
-      const testMessage = [{ role: 'user' as const, content: 'Hello' }];
-      await this.directInvoke(testMessage);
-      return true;
-    } catch (error) {
-      this.logger.error('Health check failed', error);
-      return false;
     }
   }
 }
