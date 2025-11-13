@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus, Param } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { Document } from '@langchain/core/documents';
 import { QdrantService } from '../../rag/qdrant/qdrant.service';
 import * as fs from 'fs';
@@ -96,8 +96,8 @@ export class IngestService {
                         chunks.push(currentChunk.trim());
                     }
                 } else {
-                // 章节大小在限制范围内，直接添加到结果中
-                chunks.push(section.trim());
+                    // 章节大小在限制范围内，直接添加到结果中
+                    chunks.push(section.trim());
                 }
             }
             // 返回分割后的文档块数组
@@ -136,7 +136,7 @@ export class IngestService {
 
             // 读取文件内容
             const content = fs.readFileSync(filePath, 'utf-8');
-            
+
             // 获取文件名作为源
             const source = path.basename(filePath);
 
