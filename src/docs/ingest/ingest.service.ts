@@ -1,7 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { Document } from '@langchain/core/documents';
 import { QdrantService } from '../../rag/qdrant/qdrant.service';
-import * as fs from 'fs';
+import * as fsPromise from 'fs/promises';
 import * as path from 'path';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class IngestService {
      * @param overlap 重叠的字符数
      * @returns 分割后的文档块
      */
-    async splitMarkdown(content: string, maxChunkSize: number = 1000,): Promise<string[]> {
+    async splitMarkdown(content: string, maxChunkSize: number = 500,): Promise<string[]> {
         try {
             // 初始化结果数组
             const chunks: string[] = [];
@@ -119,12 +119,15 @@ export class IngestService {
     async ingest(filePath: string): Promise<void> {
         try {
             // 检查文件是否存在
-            if (!fs.existsSync(filePath)) {
-                throw new HttpException(
-                    `文件不存在: ${filePath}`,
-                    HttpStatus.NOT_FOUND,
-                );
-            }
+         try{
+            await fsPromise.access(filePath);
+         } catch (error) {
+            throw new HttpException(
+               `文件不存在: ${filePath}`,
+                HttpStatus.NOT_FOUND,
+            );
+         }
+         
 
             // 检查是否为 md 文件
             if (path.extname(filePath) !== '.md') {
@@ -135,8 +138,8 @@ export class IngestService {
             }
 
             // 读取文件内容
-            const content = fs.readFileSync(filePath, 'utf-8');
-
+            const content = await fsPromise.readFile(filePath, 'utf-8');
+            
             // 获取文件名作为源
             const source = path.basename(filePath);
 
