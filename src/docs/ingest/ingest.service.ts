@@ -53,7 +53,6 @@ export class IngestService {
      * 分割Markdown文档
      * @param content Markdown文档内容
      * @param maxChunkSize 分块最大字符数
-     * @param overlap 重叠的字符数
      * @returns 分割后的文档块
      */
     async splitMarkdown(content: string, maxChunkSize: number = 500,): Promise<string[]> {
@@ -143,7 +142,7 @@ export class IngestService {
             }else{
                 await this.parseDocument(filePath);
                 content = await fs.readFile(newFilePath, 'utf-8');
-                fileName = path.basename(newFilePath, ext);
+                fileName = `${fileName}-parsed`
             }
 
             // 分割文档
