@@ -14,28 +14,32 @@ export class RagService {
     this.logger = new Logger(RagService.name);
   }
 
-  getEmbedQuery(query: string) {
+  getEmbedQuery(query: string): Promise<number[]> {
     return this.embedding.embedQuery(query);
   }
 
-  private async retrieve(query: string) {
-    const chunks = await this.qdrant.similaritySearch(query, 5);
+  async resetVectorStore() {
+    await this.qdrant.resetVectorStore();
+  }
+
+  private async retrieve(query: string, topK: number = 5): Promise<string[]> {
+    const chunks = await this.qdrant.similaritySearch(query, topK);
     return chunks.map(chunk => chunk.pageContent);
   }
 
-  private async retrieveWithRerank(query: string) {
-    const chunks = await this.qdrant.similaritySearchWithRerank(query, 5);
+  private async retrieveWithScore(query: string, topK: number = 5): Promise<string[]> {
+    const chunks = await this.qdrant.similaritySearchWithScore(query, topK);
+    return chunks.map(chunk => chunk[0].pageContent);
+  }
+
+  private async retrieveWithRerank(query: string, topK: number = 5): Promise<string[]> {
+    const chunks = await this.qdrant.similaritySearchWithRerank(query, topK);
     return chunks.map(chunk => chunk.pageContent);
   }
 
-  private async retrieveWithScore(query: string) {
-    const chunks = await this.qdrant.similaritySearchWithRerank(query, 5);
-    return chunks.map(chunk => chunk.pageContent);
-  }
-
-  async ragChat(userQuestion: string): Promise<string> {
+  async ragChat(userQuestion: string, topK: number = 5): Promise<string> {
     try {
-      const chunks = await this.retrieveWithScore(userQuestion);
+      const chunks = await this.retrieveWithRerank(userQuestion, topK);
       return await this.llm.ragChat(userQuestion, chunks);
     } catch (error) {
       this.logger.error('Error in ragChat method', error);
