@@ -23,6 +23,13 @@ function createMulterOptions(
     fileFilter: (_, file, cb) => {
       if (allowedMimeTypes.length === 0) {
         cb(new Error('未指定允许的文件类型'), false);
+      }else if(allowedMimeTypes.includes('text/markdown')){
+        // 允许 .md 和 .markdown 扩展名的文件，即使 MIME 类型是 application/octet-stream
+          const fileName = file.originalname.toLowerCase();
+          if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
+          cb(null, true);
+          return;
+          }
       } else if (!allowedMimeTypes.includes(file.mimetype)) {
         cb(new Error('文件类型不支持'), false);
       } else {
