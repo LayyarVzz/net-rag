@@ -95,25 +95,25 @@ export class RagController {
     };
   }
 
-  @Post('settings')
+  @Post('settings/llm')
   @HttpCode(200)
   async setSettings(@Body() body: {
     baseURL: string,
     apiKey: string,
-    model: string,
-    rerankerURL: string,
-    rerankerAPIKey: string,
-    rerankerModel: string,
+    model: string
   }) {
     let msg: string;
+    let code: number;
     // 检查是否提供了所有必要的参数
-    if (!body.baseURL || !body.apiKey || !body.model || !body.rerankerURL || !body.rerankerAPIKey || !body.rerankerModel) {
+    if (!body.baseURL || !body.apiKey || !body.model) {
       msg = '所有参数都是必填的';
-      this.logger.warn('用户未填写相关参数');
+      code = 400;
+      this.logger.warn('用户未填写llm相关参数');
     }
     else {
       msg = '设置成功';
-      this.logger.log(`设置成功: ${JSON.stringify(body)}`);
+      code = 200;
+      this.logger.log(`llm设置成功: ${JSON.stringify(body)}`);
     }
 
     process.env.BASE_URL = body.baseURL;
@@ -121,13 +121,73 @@ export class RagController {
     process.env.LLM_MODEL = body.model;
 
     return {
+      code: code,
       message: msg,
       baseURL: body.baseURL,
       apiKey: body.apiKey,
       model: body.model,
-      rerankerURL: body.rerankerURL,
-      rerankerAPIKey: body.rerankerAPIKey,
-      rerankerModel: body.rerankerModel,
+    };
+  }
+
+  @Post('settings/embedding')
+  @HttpCode(200)
+  async setEmbeddingSettings(@Body() body: {
+    baseURL: string,
+    apiKey: string,
+    model: string
+  }) {
+    let msg: string;
+    let code: number;
+    // 检查是否提供了所有必要的参数
+    if (!body.baseURL || !body.apiKey || !body.model) {
+      msg = '所有参数都是必填的';
+      code = 400;
+      this.logger.warn('用户未填写embedding相关参数');
+    }
+    else {
+      msg = '设置成功';
+      code = 200;
+      this.logger.log(`embedding设置成功: ${JSON.stringify(body)}`);
+    }
+
+    process.env.EMBEDDING_BASE_URL = body.baseURL;
+    process.env.EMBEDDING_API_KEY = body.apiKey;
+    process.env.EMBEDDING_MODEL = body.model;
+
+    return {
+      code: code,
+      message: msg,
+      baseURL: body.baseURL,
+      apiKey: body.apiKey,
+      model: body.model,
+    };
+  }
+
+  @Post('settings/reranker')
+  @HttpCode(200)
+  async setRerankerSettings(@Body() body: {
+    apiKey: string
+  }) {
+    let msg: string;
+    let code: number;
+    // 检查是否提供了所有必要的参数
+    if (!body.apiKey) {
+      msg = '所有参数都是必填的';
+      code = 400;
+      this.logger.warn('用户未填写reranker相关参数');
+    }
+    else {
+      msg = '设置成功';
+      code = 200;
+      this.logger.log(`reranker设置成功: ${JSON.stringify(body)}`);
+    }
+
+    process.env.DASHSCOPE_API_KEY = body.apiKey;
+
+    return {
+      code: code,
+      message: msg,
+      apiKey: body.apiKey
     };
   }
 }
