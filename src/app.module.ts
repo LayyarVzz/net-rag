@@ -7,9 +7,9 @@ import { UploadModule } from './docs/upload/upload.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    //RagModule,
+    RagModule,
     IngestModule,
-    UploadModule,],
+    UploadModule],
   controllers: [],
   providers: [],
 })
