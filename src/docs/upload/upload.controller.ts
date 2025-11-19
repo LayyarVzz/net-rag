@@ -1,4 +1,4 @@
-import { Controller, Post, HttpCode, Delete, Param, Get } from '@nestjs/common';
+import { Controller, Post, HttpCode, Delete, Param } from '@nestjs/common';
 import { UploadService } from './upload.service';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,15 +23,14 @@ function createMulterOptions(
     fileFilter: (_, file, cb) => {
       if (allowedMimeTypes.length === 0) {
         cb(new Error('未指定允许的文件类型'), false);
-      }else if(allowedMimeTypes.includes('text/markdown')){
-        // 允许 .md 和 .markdown 扩展名的文件，即使 MIME 类型是 application/octet-stream
-          const fileName = file.originalname.toLowerCase();
-          if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
-          cb(null, true);
-          return;
-          }
       } else if (!allowedMimeTypes.includes(file.mimetype)) {
-        cb(new Error('文件类型不支持'), false);
+        // 允许Windows系统不能识别的 .md 和 .markdown 扩展名的文件
+        const fileName = file.originalname.toLowerCase();
+        if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
+          cb(null, true);
+        } else {
+          cb(new Error(`文件类型:${file.mimetype}不支持`), false);
+        }
       } else {
         cb(null, true);
       }
