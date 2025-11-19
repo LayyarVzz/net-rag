@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, BadRequestException } from '@nestjs/common';
 import { OpenAIEmbeddings } from '@langchain/openai';
 
 @Injectable()
@@ -28,10 +28,10 @@ export class EmbeddingService implements OnModuleInit {
             return await this.embeddings.embedDocuments(chunks);
         } catch (error) {
             this.logger.error('文档嵌入处理失败', error.message);
-            throw new HttpException(
-                '文档嵌入处理失败，请稍后再试',
-                HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            throw new BadRequestException({
+                message: '文档嵌入处理失败，请稍后再试',
+                error: error.message
+            });
         }
     }
 
@@ -45,10 +45,10 @@ export class EmbeddingService implements OnModuleInit {
             return await this.embeddings.embedQuery(query);
         } catch (error) {
             this.logger.error('查询嵌入处理失败', error.message);
-            throw new HttpException(
-                '查询嵌入处理失败，请稍后再试',
-                HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            throw new BadRequestException({
+                message: '查询嵌入处理失败，请稍后再试',
+                error: error.message
+            });
         }
     }
 }
