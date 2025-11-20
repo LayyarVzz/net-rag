@@ -14,7 +14,8 @@ function createMulterOptions(
     storage: diskStorage({
       destination: dest,
       filename: (_, file, cb) => {
-        cb(null, file.originalname);
+         const fileName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        cb(null, fileName);
       }
     }),
     limits: {
