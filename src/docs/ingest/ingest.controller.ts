@@ -1,53 +1,59 @@
 // ingest.controller.ts
-import { Controller, Post, UploadedFile, UseInterceptors, HttpException, HttpStatus, Body } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+// src/docs/ingest/ingest.controller.ts
+import {
+  Controller,
+  Post,
+  Body,
+  HttpStatus,
+  HttpException,
+  Logger,
+  ValidationPipe,
+} from '@nestjs/common';
 import { IngestService } from './ingest.service';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+
+// 定义DTO用于验证请求体
+class IngestPathDto {
+  filePath: string;
+}
 
 @Controller('ingest')
 export class IngestController {
-  constructor(private readonly ingestService: IngestService) { }
+  private readonly logger = new Logger(IngestController.name);
 
+  constructor(private readonly ingestService: IngestService) {}
 
+  // ... existing code ...
+
+  /**
+   * 通过文件路径处理文档的端点
+   * 前端发送文件路径，服务端直接处理该路径的文件
+   */
   @Post('test')
-  async test(@Body() body: { filePath: string }) {
+  async ingestByPath(@Body(new ValidationPipe()) body: IngestPathDto) {
+    const { filePath } = body;
+    console.log('Received filePath:', filePath);
+    if (!filePath) {
+      throw new HttpException(
+        '文件路径不能为空',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
     try {
-      if (!body.filePath) {
-        return {
-          success: false,
-          message: '请提供filePath字段'
-        };
-      }
-      console.log('filePath:', body.filePath);
-
-      // 检查文件是否存在
-      if (!fs.existsSync(body.filePath)) {
-        throw new HttpException(
-          `文件不存在: ${body.filePath}`,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      // 检查是否为 md 文件
-      if (path.extname(body.filePath) !== '.md') {
-        throw new HttpException(
-          '只支持 Markdown 文件 (.md)',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      // 读取文件内容
-      const content = fs.readFileSync(body.filePath, 'utf-8');
-      // 分割文档
-      const chunks = await this.ingestService.splitMarkdown(content);
-      console.log('chunks的length:', chunks.length);
-
-      console.log('chunks+索引:\n', chunks.map((chunk, index) => `[${index}] ${chunk}`).join('\n'));
-
-      console.log('chunks的原文:\n', chunks);
-
+      // 调用 ingest 服务处理文件
+      await this.ingestService.ingest(filePath);
+      
+      return {
+        statusCode: HttpStatus.OK,
+        message: '文件处理并注入成功',
+        filePath: filePath,
+      };
     } catch (error) {
-      console.log('test error', error);
+      this.logger.error('通过路径处理文件失败', error.message);
+      throw new HttpException(
+        error.message || '文件处理失败',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }
