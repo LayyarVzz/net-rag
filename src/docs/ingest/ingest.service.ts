@@ -119,6 +119,7 @@ export class IngestService {
     */
     async ingest(filePath: string): Promise<void> {
         try {
+          console.log('开始处理文件:', filePath);
             // 检查文件是否存在
          try{
             await fs.access(filePath);
@@ -142,6 +143,7 @@ export class IngestService {
             }else{
                 await this.parseDocument(filePath);
                 content = await fs.readFile(newFilePath, 'utf-8');
+                console.log(`已解析文件: ${fileName}`);
                 fileName = `${fileName}-parsed`
             }
 
