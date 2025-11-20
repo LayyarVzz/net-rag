@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, unlinkSync } from 'fs';
-import { url } from 'inspector';
 import { join } from 'path';
 
 @Injectable()
 export class UploadService {
     private readonly logger = new Logger(UploadService.name);
-   
+
     echoFile(file: Express.Multer.File) {
         this.logger.log(`文件上传成功: ${file.filename}`);
         return {
@@ -14,7 +13,7 @@ export class UploadService {
             originalname: file.originalname,
             filename: file.filename,
             mimetype: file.mimetype,
-            url:file.path
+            url: file.path
         }
     }
 

@@ -1,35 +1,18 @@
-// ingest.controller.ts
-// src/docs/ingest/ingest.controller.ts
-import {
-  Controller,
-  Post,
-  Body,
-  HttpStatus,
-  HttpException,
-  Logger,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Controller, Post, Body, HttpStatus, HttpException, Logger } from '@nestjs/common';
 import { IngestService } from './ingest.service';
-
-// 定义DTO用于验证请求体
-class IngestPathDto {
-  filePath: string;
-}
 
 @Controller('ingest')
 export class IngestController {
   private readonly logger = new Logger(IngestController.name);
 
-  constructor(private readonly ingestService: IngestService) {}
-
-  // ... existing code ...
+  constructor(private readonly ingestService: IngestService) { }
 
   /**
    * 通过文件路径处理文档的端点
    * 前端发送文件路径，服务端直接处理该路径的文件
    */
   @Post('test')
-  async ingestByPath(@Body(new ValidationPipe()) body: IngestPathDto) {
+  async ingestByPath(@Body() body: { filePath: string }) {
     const { filePath } = body;
     console.log('Received filePath:', filePath);
     if (!filePath) {
@@ -38,11 +21,11 @@ export class IngestController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    
+
     try {
       // 调用 ingest 服务处理文件
       await this.ingestService.ingest(filePath);
-      
+
       return {
         statusCode: HttpStatus.OK,
         message: '文件处理并注入成功',
