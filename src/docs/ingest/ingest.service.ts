@@ -81,9 +81,8 @@ export class IngestService {
           chunkOverlap: overlapSize,
           separators: [
             "\n\n",     // 段落分隔
-             "",// 字符分隔（兜底）
-             "。",       // 中文句号分隔
-            " ",        // 空格分隔
+            "。",       // 中文句号分隔
+            "",// 字符分隔（兜底）
                      
           ]
         });
