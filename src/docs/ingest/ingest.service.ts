@@ -54,15 +54,16 @@ export class IngestService {
      * @param content Markdown文档内容
      * @param maxChunkSize 分块最大字符数
      * @returns 分割后的文档块
+     * @overlapSize 分块重叠的字符数
      */
-    async splitMarkdown(content: string, maxChunkSize: number = 500,): Promise<string[]> {
+    async splitMarkdown(content: string, maxChunkSize: number = 1500,overlapSize:number = 500): Promise<string[]> {
         try {
             // 初始化结果数组
             const chunks: string[] = [];
 
             // 1.按三层标题来分割文档(#,##,###),保留分隔符
             // 使用正向先行断言,匹配格式(标题在行首,1~3个#号,后跟一个空格+标题,全局匹配)
-            const sections = content.split(/(?=^#{1,3}\s)/gm);
+            const sections = content.split(/(?=^#{1,5}\s)/gm);
             // 2.遍历每一个章节
             for (const section of sections) {
                 // 跳过空章节
@@ -76,16 +77,47 @@ export class IngestService {
                     const header = lines[0] || '';
                     // 让每一块都以标题加换行符开头
                     let currentChunk = header + '\n';
-
+                    // 存储上一个块的结尾部分内容，用于重叠
+                    let overlapContent = '';
                     // 处理剩余行
                     for (let i = 1; i < lines.length; i++) {
                         const line = lines[i];
                         // 如果标题加上内容超出限制大小,就保存当前块新开一个块(注意当前行不能与标题行一样)
                         if (currentChunk.length + line.length > maxChunkSize && currentChunk.length > header.length + 1) {
                             // 保存当前块(除去块开头 / 结尾的多余空白字符)
+                            console.log('超出限制了',currentChunk);
                             chunks.push(currentChunk.trim());
+                             // 设置重叠内容为当前块末尾的指定长度文本
+                        if (overlapSize > 0) {
+                          // 获取除去标题的文本
+                            const contentWithoutHeader = currentChunk.substring(header.length + 1);
+                            // 分割成行,然后过滤空行
+                            const contentLines = contentWithoutHeader.split('\n').filter(l => l.trim() !== '');
+                            // 获取用于重叠的文本
+                            let overlapText = '';
+                            let currentOverlapSize = 0;
+                            // 倒叙遍历,获取最后的内容
+                            for (let j = contentLines.length - 1; j >= 0; j--) {
+                                const lineText = contentLines[j];
+                                console.log('lineText:', lineText,);
+                                console.log("总长度:", lineText.length);
+                                // 如果超过重叠限制,就停止,否则,添加到重叠文本中
+                                if (currentOverlapSize + lineText.length <= overlapSize) {
+                                   
+                                    overlapText = lineText + '\n' + overlapText;
+                                    console.log('overlapText:', overlapText);
+                                    currentOverlapSize += lineText.length + 1;
+                                } else {
+                                  console.log('上下文达到上限')
+                                    break;
+                                }
+                            }
+                            // 去除首尾空白字符
+                            overlapContent = overlapText.trim();
+                            console.log('overlapContent:', overlapContent);
+                        }
                             // 新建一个块,以标题开头,保持上下文
-                            currentChunk = header + '\n' + line + '\n';
+                             currentChunk = header + '\n' + (overlapContent ? overlapContent + '\n' : '') + line + '\n';
                         } else {
                             // 否则将行添加到当前块
                             currentChunk += line + '\n';
@@ -149,6 +181,13 @@ export class IngestService {
 
             // 分割文档
             const chunks = await this.splitMarkdown(content);
+            console.log('chunks的length:', chunks.length);
+
+            console.log('chunks+索引:\n', chunks.map((chunk, index) => `[${index}] ${chunk}`).join('\n'));
+
+            console.log('chunks的原文:\n', chunks);
+
+            
 
             // 处理并入库文档
             await this.ingestMarkdownDocuments(chunks, fileName);
