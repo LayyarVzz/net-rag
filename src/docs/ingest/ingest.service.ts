@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { Document } from '@langchain/core/documents';
 import { QdrantService } from '../../rag/qdrant/qdrant.service';
+import { RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import pdfParse from 'pdf-parse';
@@ -56,94 +57,67 @@ export class IngestService {
      * @returns 分割后的文档块
      * @overlapSize 分块重叠的字符数
      */
-    async splitMarkdown(content: string, maxChunkSize: number = 1500,overlapSize:number = 500): Promise<string[]> {
-        try {
-            // 初始化结果数组
-            const chunks: string[] = [];
+    async splitMarkdown(content: string, maxChunkSize: number = 600,overlapSize:number = 150): Promise<string[]> {
+    try {
+    // 初始化结果数组
+    const chunks: string[] = [];
 
-            // 1.按三层标题来分割文档(#,##,###),保留分隔符
-            // 使用正向先行断言,匹配格式(标题在行首,1~3个#号,后跟一个空格+标题,全局匹配)
-            const sections = content.split(/(?=^#{1,5}\s)/gm);
-            // 2.遍历每一个章节
-            for (const section of sections) {
-                // 跳过空章节
-                if (section.trim().length === 0) continue;
-                // 3.判断是否超过最大限制
-                if (section.length > maxChunkSize) {
-                    // 章节太大,进一步细分
-                    // 按行提取
-                    const lines = section.split('\n');
-                    // 标题行(可能为空)
-                    const header = lines[0] || '';
-                    // 让每一块都以标题加换行符开头
-                    let currentChunk = header + '\n';
-                    // 存储上一个块的结尾部分内容，用于重叠
-                    let overlapContent = '';
-                    // 处理剩余行
-                    for (let i = 1; i < lines.length; i++) {
-                        const line = lines[i];
-                        // 如果标题加上内容超出限制大小,就保存当前块新开一个块(注意当前行不能与标题行一样)
-                        if (currentChunk.length + line.length > maxChunkSize && currentChunk.length > header.length + 1) {
-                            // 保存当前块(除去块开头 / 结尾的多余空白字符)
-                            console.log('超出限制了',currentChunk);
-                            chunks.push(currentChunk.trim());
-                             // 设置重叠内容为当前块末尾的指定长度文本
-                        if (overlapSize > 0) {
-                          // 获取除去标题的文本
-                            const contentWithoutHeader = currentChunk.substring(header.length + 1);
-                            // 分割成行,然后过滤空行
-                            const contentLines = contentWithoutHeader.split('\n').filter(l => l.trim() !== '');
-                            // 获取用于重叠的文本
-                            let overlapText = '';
-                            let currentOverlapSize = 0;
-                            // 倒叙遍历,获取最后的内容
-                            for (let j = contentLines.length - 1; j >= 0; j--) {
-                                const lineText = contentLines[j];
-                                console.log('lineText:', lineText,);
-                                console.log("总长度:", lineText.length);
-                                // 如果超过重叠限制,就停止,否则,添加到重叠文本中
-                                if (currentOverlapSize + lineText.length <= overlapSize) {
-                                   
-                                    overlapText = lineText + '\n' + overlapText;
-                                    console.log('overlapText:', overlapText);
-                                    currentOverlapSize += lineText.length + 1;
-                                } else {
-                                  console.log('上下文达到上限')
-                                    break;
-                                }
-                            }
-                            // 去除首尾空白字符
-                            overlapContent = overlapText.trim();
-                            console.log('overlapContent:', overlapContent);
-                        }
-                            // 新建一个块,以标题开头,保持上下文
-                             currentChunk = header + '\n' + (overlapContent ? overlapContent + '\n' : '') + line + '\n';
-                        } else {
-                            // 否则将行添加到当前块
-                            currentChunk += line + '\n';
-                        }
-                    }
+    // 1. 按标题分割文档，保留分隔符
+    const sections = content.split(/(?=^#{1,5}\s)/gm);
+    
+    // 2. 遍历每个章节
+    for (const section of sections) {
+      // 跳过空章节
+      if (section.trim().length === 0) continue;
+      
+      // 3. 判断是否超过最大限制
+      if (section.length <= maxChunkSize) {
+        // 章节大小在限制范围内，直接添加到结果中
+        chunks.push(section.trim());
+      } else {
+        // 章节太大，使用Langchain分割器进一步细分
+        const splitter = new RecursiveCharacterTextSplitter({
+          chunkSize: maxChunkSize,
+          chunkOverlap: overlapSize,
+          separators: [
+            "\n\n",     // 段落分隔
+             "",// 字符分隔（兜底）
+             "。",       // 中文句号分隔
+            " ",        // 空格分隔
+                     
+          ]
+        });
 
-                    // 添加最后一个块(如果不为空)
-                    if (currentChunk.trim()) {
-                        chunks.push(currentChunk.trim());
-                    }
-                } else {
-                    // 章节大小在限制范围内，直接添加到结果中
-                    chunks.push(section.trim());
-                }
-            }
-            // 返回分割后的文档块数组
-            return chunks;
-        } catch (error) {
-            // 错误日志
-            this.logger.error('文档分割失败', error.message);
-            throw new HttpException(
-                '文档分割失败',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+        // 获取标题行（如果有）
+        const lines = section.split('\n');
+        const header = lines[0] || '';
+        const contentWithoutHeader = lines.slice(1).join('\n');
+        
+        // 对正文内容进行分割
+        const contentChunks = await splitter.splitText(contentWithoutHeader);
+        console.log('contentChunks内容', contentChunks,);
+        // 为每个分割块添加标题
+        for (const chunk of contentChunks) {
+          console.log('chunk内容', chunk,'长度:',chunk.length);
+          if (header && chunk.trim().length > 0) {
+            chunks.push(`${header}\n${chunk.trim()}`);
+          } else if (chunk.trim().length > 0) {
+            chunks.push(chunk.trim());
+          }
         }
+      }
     }
+    
+    // 过滤掉空块并返回结果
+    return chunks.filter(chunk => chunk.trim().length > 0);
+  } catch (error) {
+    this.logger.error('文档分割失败', error.message);
+    throw new HttpException(
+      '文档分割失败',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
 
     /**
     * 直接从文件路径读取文档并进行分块,处理和入库
