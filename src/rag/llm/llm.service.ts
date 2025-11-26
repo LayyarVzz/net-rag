@@ -3,6 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+// 在 llm.service.ts 中添加环境变量加载
+import { config } from 'dotenv';
+
+// 在文件顶部添加
+config();
 
 // 定义聊天消息接口
 export interface ChatMessage {
@@ -33,6 +38,9 @@ export class LlmService {
       const baseURL = process.env.BASE_URL;
       const model = process.env.LLM_MODEL;
 
+      console.log(`LLM_MODEL: ${model}`);
+      console.log(`BASE_URL: ${baseURL}`);
+      console.log(`API_KEY: ${apiKey}`);
       if (!apiKey) {
         throw new Error('API_KEY is required');
       }
@@ -121,14 +129,20 @@ ${historyString}
   async ragChat(userQuestion: string, chunks: string[]): Promise<string> {
     try {
       // 添加用户消息到历史
+      console.log('userQuestion:', userQuestion,'chunks:',chunks);
       this.chatHistory.push({ role: 'user', content: userQuestion });
+      const escapedChunks = chunks.map(chunk => 
+    chunk
+      .replace(/{/g, '{{')  // 错误：你使用了 \\\\{，应该是 {{
+      .replace(/}/g, '}}')  // 错误：你使用了 \\\\}，应该是 }}
 
+    )
       const template = `请基于以下检索结果回答用户问题：
 
 用户问题：${userQuestion}
 
 相关文档片段：
-${chunks}
+${escapedChunks}
 
 回答要求：
 1. 基于提供的文档片段回答问题
@@ -137,10 +151,11 @@ ${chunks}
 4. 回答要简洁、准确、有依据
 
 回答：`;
-
+      console.log('template:', template);
       const prompt = ChatPromptTemplate.fromTemplate(template);
+     
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
-
+      
       const result = await chain.invoke({
         userQuestion,
         chunks: chunks.join('\n\n')
