@@ -11,7 +11,7 @@ export class IngestController {
    * 通过文件路径处理文档的端点
    * 前端发送文件路径，服务端直接处理该路径的文件
    */
-  @Post('test')
+  @Post('ingest')
   async ingestByPath(@Body() body: { filePath: string }) {
     const { filePath } = body;
     console.log('Received filePath:', filePath);
