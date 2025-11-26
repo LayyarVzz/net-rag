@@ -1,7 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { Document } from '@langchain/core/documents';
 import { QdrantService } from '../../rag/qdrant/qdrant.service';
-import { RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import pdfParse from 'pdf-parse';
@@ -9,177 +9,177 @@ import mammoth from 'mammoth';
 
 @Injectable()
 export class IngestService {
-    // 创建logger实例
-    private readonly logger = new Logger(IngestService.name)
-    // 构造函数,注入QdrantService依赖
-    constructor(private readonly qdrantService: QdrantService) { }
-    /**
-     * 处理并将md文档入库
-     * @param chunks 文档块数组
-     * @param fileName 源文件名
-     */
-    async ingestMarkdownDocuments(chunks: string[], fileName: string): Promise<void> {
-        try {
-            //转换成Document格式数组
-            const documents: Document[] = chunks.map((chunk, index) =>
-                // 创建Document实例
-                new Document({
-                    // 文档主要内容
-                    pageContent: chunk,
-                    // 自定义数据信息
-                    metadata: {
-                        //源文件名
-                        fileName: fileName,
-                        // 处理时间的时间戳,转换成熟悉的年份-月份-日期-....这样的格式
-                        timestamp: new Date().toISOString(),
-                        // 文档块的索引
-                        chunkIndex: index,
-                    }
-                })
-            );
-            // 添加文档到Qdrant向量数据库
-            await this.qdrantService.addDocuments(documents);
-            this.logger.log(`成功处理并注入 ${documents.length} 个文档块到向量数据库，源文件: ${fileName}`);
-        } catch (error) {
-            this.logger.error('处理文档块失败', error.message);
-            // 抛出错误信息
-            throw new HttpException(
-                '处理文档块失败，请稍后再试',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
-        }
-    }
-
-    /**
-     * 分割Markdown文档
-     * @param content Markdown文档内容
-     * @param maxChunkSize 分块最大字符数
-     * @returns 分割后的文档块
-     * @overlapSize 分块重叠的字符数
-     */
-    async splitMarkdown(content: string, maxChunkSize: number = 600,overlapSize:number = 150): Promise<string[]> {
+  // 创建logger实例
+  private readonly logger = new Logger(IngestService.name)
+  // 构造函数,注入QdrantService依赖
+  constructor(private readonly qdrantService: QdrantService) { }
+  /**
+   * 处理并将md文档入库
+   * @param chunks 文档块数组
+   * @param fileName 源文件名
+   */
+  async ingestMarkdownDocuments(chunks: string[], fileName: string): Promise<void> {
     try {
-    // 初始化结果数组
-    const chunks: string[] = [];
+      //转换成Document格式数组
+      const documents: Document[] = chunks.map((chunk, index) =>
+        // 创建Document实例
+        new Document({
+          // 文档主要内容
+          pageContent: chunk,
+          // 自定义数据信息
+          metadata: {
+            //源文件名
+            fileName: fileName,
+            // 处理时间的时间戳,转换成熟悉的年份-月份-日期-....这样的格式
+            timestamp: new Date().toISOString(),
+            // 文档块的索引
+            chunkIndex: index,
+          }
+        })
+      );
+      // 添加文档到Qdrant向量数据库
+      await this.qdrantService.addDocuments(documents);
+      this.logger.log(`成功处理并注入 ${documents.length} 个文档块到向量数据库，源文件: ${fileName}`);
+    } catch (error) {
+      this.logger.error('处理文档块失败', error.message);
+      // 抛出错误信息
+      throw new HttpException(
+        '处理文档块失败，请稍后再试',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
-    // 1. 按标题分割文档，保留分隔符
-    const sections = content.split(/(?=^#{1,5}\s)/gm);
-    
-    // 2. 遍历每个章节
-    for (const section of sections) {
-      // 跳过空章节
-      if (section.trim().length === 0) continue;
-      
-      // 3. 判断是否超过最大限制
-      if (section.length <= maxChunkSize) {
-        // 章节大小在限制范围内，直接添加到结果中
-        chunks.push(section.trim());
-      } else {
-        // 章节太大，使用Langchain分割器进一步细分
-        const splitter = new RecursiveCharacterTextSplitter({
-          chunkSize: maxChunkSize,
-          chunkOverlap: overlapSize,
-          separators: [
-            "\n\n",     // 段落分隔
-            "。",       // 中文句号分隔
-            "",// 字符分隔（兜底）
-                     
-          ]
-        });
+  /**
+   * 分割Markdown文档
+   * @param content Markdown文档内容
+   * @param maxChunkSize 分块最大字符数
+   * @returns 分割后的文档块
+   * @overlapSize 分块重叠的字符数
+   */
+  async splitMarkdown(content: string, maxChunkSize: number = 600, overlapSize: number = 150): Promise<string[]> {
+    try {
+      // 初始化结果数组
+      const chunks: string[] = [];
 
-        // 获取标题行（如果有）
-        const lines = section.split('\n');
-        const header = lines[0] || '';
-        const contentWithoutHeader = lines.slice(1).join('\n');
-        
-        // 对正文内容进行分割
-        const contentChunks = await splitter.splitText(contentWithoutHeader);
-        console.log('contentChunks内容', contentChunks,);
-        // 为每个分割块添加标题
-        for (const chunk of contentChunks) {
-          console.log('chunk内容', chunk,'长度:',chunk.length);
-          if (header && chunk.trim().length > 0) {
-            chunks.push(`${header}\n${chunk.trim()}`);
-          } else if (chunk.trim().length > 0) {
-            chunks.push(chunk.trim());
+      // 1. 按标题分割文档，保留分隔符
+      const sections = content.split(/(?=^#{1,5}\s)/gm);
+
+      // 2. 遍历每个章节
+      for (const section of sections) {
+        // 跳过空章节
+        if (section.trim().length === 0) continue;
+
+        // 3. 判断是否超过最大限制
+        if (section.length <= maxChunkSize) {
+          // 章节大小在限制范围内，直接添加到结果中
+          chunks.push(section.trim());
+        } else {
+          // 章节太大，使用Langchain分割器进一步细分
+          const splitter = new RecursiveCharacterTextSplitter({
+            chunkSize: maxChunkSize,
+            chunkOverlap: overlapSize,
+            separators: [
+              "\n\n",     // 段落分隔
+              "。",       // 中文句号分隔
+              "",// 字符分隔（兜底）
+
+            ]
+          });
+
+          // 获取标题行（如果有）
+          const lines = section.split('\n');
+          const header = lines[0] || '';
+          const contentWithoutHeader = lines.slice(1).join('\n');
+
+          // 对正文内容进行分割
+          const contentChunks = await splitter.splitText(contentWithoutHeader);
+          console.log('contentChunks内容', contentChunks,);
+          // 为每个分割块添加标题
+          for (const chunk of contentChunks) {
+            console.log('chunk内容', chunk, '长度:', chunk.length);
+            if (header && chunk.trim().length > 0) {
+              chunks.push(`${header}\n${chunk.trim()}`);
+            } else if (chunk.trim().length > 0) {
+              chunks.push(chunk.trim());
+            }
           }
         }
       }
+
+      // 过滤掉空块并返回结果
+      return chunks.filter(chunk => chunk.trim().length > 0);
+    } catch (error) {
+      this.logger.error('文档分割失败', error.message);
+      throw new HttpException(
+        '文档分割失败',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-    
-    // 过滤掉空块并返回结果
-    return chunks.filter(chunk => chunk.trim().length > 0);
-  } catch (error) {
-    this.logger.error('文档分割失败', error.message);
-    throw new HttpException(
-      '文档分割失败',
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
   }
-}
 
-    /**
-    * 直接从文件路径读取文档并进行分块,处理和入库
-    * @param filePath 文件路径
-    */
-    async ingest(filePath: string): Promise<void> {
-        try {
-          console.log('开始处理文件:', filePath);
-            // 检查文件是否存在
-         try{
-            await fs.access(filePath);
-         } catch (error) {
-            throw new HttpException(
-               `文件不存在: ${filePath}`,
-                HttpStatus.NOT_FOUND,
-            );
-         }
-            const ext = path.extname(filePath).toLowerCase();
-            let fileName = path.basename(filePath, ext);
-            const dir = path.dirname(filePath);
-            let content ='';
-            const newFilePath = path.join(dir, `${fileName}-parsed.md`);
-            
-            // 检查是否为 md 文件,不是md文档就调用parseDocument
-            if (ext == '.md') {
-            // 读取文件内容
-            content = await fs.readFile(filePath, 'utf-8');
-            // 文件名作为源
-            }else{
-                await this.parseDocument(filePath);
-                content = await fs.readFile(newFilePath, 'utf-8');
-                console.log(`已解析文件: ${fileName}`);
-                fileName = `${fileName}-parsed`
-            }
+  /**
+  * 直接从文件路径读取文档并进行分块,处理和入库
+  * @param filePath 文件路径
+  */
+  async ingest(filePath: string): Promise<void> {
+    try {
+      console.log('开始处理文件:', filePath);
+      // 检查文件是否存在
+      try {
+        await fs.access(filePath);
+      } catch (error) {
+        throw new HttpException(
+          `文件不存在: ${filePath}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      let fileName = path.basename(filePath, ext);
+      const dir = path.dirname(filePath);
+      let content = '';
+      const newFilePath = path.join(dir, `${fileName}-parsed.md`);
 
-            // 分割文档
-            const chunks = await this.splitMarkdown(content);
-            console.log('chunks的length:', chunks.length);
+      // 检查是否为 md 文件,不是md文档就调用parseDocument
+      if (ext == '.md') {
+        // 读取文件内容
+        content = await fs.readFile(filePath, 'utf-8');
+        // 文件名作为源
+      } else {
+        await this.parseDocument(filePath);
+        content = await fs.readFile(newFilePath, 'utf-8');
+        console.log(`已解析文件: ${fileName}`);
+        fileName = `${fileName}-parsed`
+      }
 
-            console.log('chunks+索引:\n', chunks.map((chunk, index) => `[${index}] ${chunk}`).join('\n'));
+      // 分割文档
+      const chunks = await this.splitMarkdown(content);
+      console.log('chunks的length:', chunks.length);
 
-            console.log('chunks的原文:\n', chunks);
+      console.log('chunks+索引:\n', chunks.map((chunk, index) => `[${index}] ${chunk}`).join('\n'));
 
-            
+      console.log('chunks的原文:\n', chunks);
 
-            // 处理并入库文档
-            await this.ingestMarkdownDocuments(chunks, fileName);
 
-            this.logger.log(`成功处理并注入文件: ${filePath}`);
-        } catch (error) {
-            this.logger.error('文件处理失败', error.message);
-            if (error instanceof HttpException) {
-                throw error;
-            }
-            throw new HttpException(
-                '文件处理失败，请稍后再试',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
-        }
+
+      // 处理并入库文档
+      await this.ingestMarkdownDocuments(chunks, fileName);
+
+      this.logger.log(`成功处理并注入文件: ${filePath}`);
+    } catch (error) {
+      this.logger.error('文件处理失败', error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        '文件处理失败，请稍后再试',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-      /**
-   * 将指定路径的文档转换为markdown格式
-   */
+  }
+  /**
+* 将指定路径的文档转换为markdown格式
+*/
   async parseDocument(filePath: string): Promise<void> {
     try {
       // 检查文件是否存在

@@ -17,7 +17,7 @@ export class UploadService {
         }
     }
 
-    dleFile(filetype: string, filename: string) {
+    delFile(filetype: string, filename: string) {
         const filePath = join('./uploads', filetype, filename);
         if (existsSync(filePath)) {
             try {

@@ -87,14 +87,13 @@ export class RagController {
     process.env.BASE_URL = body.baseURL;
     process.env.API_KEY = body.apiKey;
     process.env.LLM_MODEL = body.model;
-    console.log('设置llmBASE_URL为:',process.env.BASE_URL);
-    console.log('设置llmAPI_KEY为:',process.env.API_KEY);
-    console.log('设置llmLLM_MODEL为:',process.env.LLM_MODEL);
+    console.log('设置llmBASE_URL为:', process.env.BASE_URL);
+    console.log('设置llmAPI_KEY为:', process.env.API_KEY);
+    console.log('设置llmLLM_MODEL为:', process.env.LLM_MODEL);
 
     return {
       message: '设置成功',
       baseURL: body.baseURL,
-      apiKey: body.apiKey,
       model: body.model,
     };
   }
@@ -116,14 +115,13 @@ export class RagController {
     process.env.EMBEDDING_API_KEY = body.apiKey;
     process.env.EMBEDDING_MODEL = body.model;
 
-    console.log('设置EMBEDDING_BASE_URL为:',process.env.EMBEDDING_BASE_URL);
-    console.log('设置EMBEDDING_API_KEY为',process.env.EMBEDDING_API_KEY);
-    console.log('设置EMBEDDING_MODEL为:',process.env.EMBEDDING_MODEL);
+    console.log('设置EMBEDDING_BASE_URL为:', process.env.EMBEDDING_BASE_URL);
+    console.log('设置EMBEDDING_API_KEY为', process.env.EMBEDDING_API_KEY);
+    console.log('设置EMBEDDING_MODEL为:', process.env.EMBEDDING_MODEL);
 
     return {
       message: '设置成功',
       baseURL: body.baseURL,
-      apiKey: body.apiKey,
       model: body.model,
     };
   }
@@ -140,11 +138,10 @@ export class RagController {
     }
 
     process.env.DASHSCOPE_API_KEY = body.apiKey;
-    console.log('设置reranker的DASHSCOPE_API_KEY为:',process.env.DASHSCOPE_API_KEY);
+    console.log('设置reranker的DASHSCOPE_API_KEY为:', process.env.DASHSCOPE_API_KEY);
 
     return {
       message: '设置成功',
-      apiKey: body.apiKey
     };
   }
 }
