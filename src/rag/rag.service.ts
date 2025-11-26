@@ -32,14 +32,16 @@ export class RagService {
     return chunks.map(chunk => chunk[0].pageContent);
   }
 
-  private async retrieveWithRerank(query: string, topK: number = 5): Promise<string[]> {
+  private async retrieveWithRerank(query: string, topK: number = 10): Promise<string[]> {
     const chunks = await this.qdrant.similaritySearchWithRerank(query, topK);
     return chunks.map(chunk => chunk.pageContent);
   }
 
-  async ragChat(userQuestion: string, topK: number = 5): Promise<string> {
+  async ragChat(userQuestion: string, topK: number = 10): Promise<string> {
     try {
+      console.log('userQuestion:', userQuestion);
       const chunks = await this.retrieveWithRerank(userQuestion, topK);
+      console.log('重排序的块为', chunks);
       return await this.llm.ragChat(userQuestion, chunks);
     } catch (error) {
       this.logger.error('Error in ragChat method', error);
