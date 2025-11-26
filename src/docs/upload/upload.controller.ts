@@ -67,6 +67,6 @@ export class UploadController {
   @Delete('del/:filetype/:filename')
   @HttpCode(200)
   deleteFile(@Param('filetype') filetype: string, @Param('filename') filename: string) {
-    return this.uploadService.dleFile(filetype, filename);
+    return this.uploadService.delFile(filetype, filename);
   }
 }
