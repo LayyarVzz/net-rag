@@ -56,7 +56,7 @@ export class RagController {
     const queryText = body.text;
     try {
       this.logger.log(`正在处理查询: ${queryText}`);
-      const result = await this.ragService.ragChat(queryText, 7);
+      const result = await this.ragService.ragChat(queryText, 10);
       this.logger.log(`ragChat 方法成功`);
       return {
         query: queryText,
