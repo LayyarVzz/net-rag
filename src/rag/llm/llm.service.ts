@@ -26,29 +26,32 @@ export class LlmService {
   private readonly maxHistoryRounds = 10;
 
   constructor() {
-    this.initializeModel();
+    if (process.env.API_KEY && process.env.BASE_URL && process.env.LLM_MODEL) {
+      this.logger.log('使用默认环境变量');
+      this.initializeModel();
+    } else {
+      this.logger.warn('未配置默认API_KEY、BASE_URL或LLM_MODEL环境变量');
+    }
   }
 
   /**
    * 初始化模型
    */
-  private initializeModel(): void {
+  initializeModel(): void {
     try {
       const apiKey = process.env.API_KEY;
       const baseURL = process.env.BASE_URL;
       const model = process.env.LLM_MODEL;
 
-      console.log(`LLM_MODEL: ${model}`);
-      console.log(`BASE_URL: ${baseURL}`);
-      console.log(`API_KEY: ${apiKey}`);
+      this.logger.log(`初始化LLM模型参数:model=${model}, baseURL=${baseURL}`);
       if (!apiKey) {
-        throw new Error('API_KEY is required');
+        this.logger.warn('API_KEY is required');
       }
       if (!baseURL) {
-        throw new Error('BASE_URL is required');
+        this.logger.warn('BASE_URL is required');
       }
       if (!model) {
-        throw new Error('LLM_MODEL is required');
+        this.logger.warn('LLM_MODEL is required');
       }
 
       this.chatModel = new ChatOpenAI({
@@ -67,11 +70,40 @@ export class LlmService {
   }
 
   /**
+   * 创建ChatOpenAI实例
+   * @param model 模型名称
+   * @param baseURL 基础URL
+   * @param apiKey API密钥
+   * @returns ChatOpenAI实例
+   */
+  createChat(model: string, baseURL: string, apiKey: string): ChatOpenAI {
+    return new ChatOpenAI({
+      model: model,
+      configuration: {
+        baseURL: baseURL,
+        apiKey: apiKey
+      }
+    });
+  }
+
+  /**
+   * 更新LLM模型
+   * @param model 模型名称
+   * @param baseURL 基础URL
+   * @param apiKey API密钥
+   * @returns ChatOpenAI实例
+   */
+  updateLLMModel(model: string, baseURL: string, apiKey: string): ChatOpenAI {
+    this.chatModel = this.createChat(model, baseURL, apiKey);
+    return this.chatModel;
+  }
+
+  /**
    * 截断历史记录，保留最新的消息
    */
   private truncateHistory(): void {
     const maxMessages = this.maxHistoryRounds * 2; // 每轮对话有2条消息（用户+助手）
-    
+
     if (this.chatHistory.length > maxMessages) {
       const removedCount = this.chatHistory.length - maxMessages;
       this.chatHistory = this.chatHistory.slice(removedCount);
@@ -81,6 +113,8 @@ export class LlmService {
 
   /**
    * 通用聊天方法 - 内部自动维护历史
+   * @param userQuestion 用户问题
+   * @returns 模型生成的回复内容
    */
   async chat(userQuestion: string): Promise<string> {
     try {
@@ -125,18 +159,21 @@ ${historyString}
 
   /**
    * 基于检索结果的聊天 - 内部自动维护历史
+   * @param userQuestion 用户问题
+   * @param chunks 检索到的文档片段数组
+   * @returns 模型生成的回复内容
    */
   async ragChat(userQuestion: string, chunks: string[]): Promise<string> {
     try {
       // 添加用户消息到历史
-      console.log('userQuestion:', userQuestion,'chunks:',chunks);
+      // this.logger.log('userQuestion:', userQuestion, 'chunks:', chunks);
       this.chatHistory.push({ role: 'user', content: userQuestion });
-      const escapedChunks = chunks.map(chunk => 
-    chunk
-      .replace(/{/g, '{{')  // 错误：你使用了 \\\\{，应该是 {{
-      .replace(/}/g, '}}')  // 错误：你使用了 \\\\}，应该是 }}
+      const escapedChunks = chunks.map(chunk =>
+        chunk
+          .replace(/{/g, '{{')  // 错误：你使用了 \\\\{，应该是 {{
+          .replace(/}/g, '}}')  // 错误：你使用了 \\\\}，应该是 }}
 
-    )
+      )
       const template = `请基于以下检索结果回答用户问题：
 
 用户问题：${userQuestion}
@@ -151,11 +188,11 @@ ${escapedChunks}
 4. 回答要简洁、准确、有依据
 
 回答：`;
-      console.log('template:', template);
+      // console.log('template:', template);
       const prompt = ChatPromptTemplate.fromTemplate(template);
-     
+
       const chain = prompt.pipe(this.chatModel).pipe(new StringOutputParser());
-      
+
       const result = await chain.invoke({
         userQuestion,
         chunks: chunks.join('\n\n')
@@ -177,6 +214,8 @@ ${escapedChunks}
 
   /**
    * 直接调用模型（原始接口）
+   * @param messages 包含用户和助手消息的数组
+   * @returns 模型生成的回复内容
    */
   async directInvoke(messages: ChatMessage[]): Promise<string> {
     try {

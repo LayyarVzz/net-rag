@@ -94,10 +94,10 @@ export class IngestService {
 
           // 对正文内容进行分割
           const contentChunks = await splitter.splitText(contentWithoutHeader);
-          console.log('contentChunks内容', contentChunks,);
+          // console.log('contentChunks内容', contentChunks,);
           // 为每个分割块添加标题
           for (const chunk of contentChunks) {
-            console.log('chunk内容', chunk, '长度:', chunk.length);
+            // console.log('chunk内容', chunk, '长度:', chunk.length);
             if (header && chunk.trim().length > 0) {
               chunks.push(`${header}\n${chunk.trim()}`);
             } else if (chunk.trim().length > 0) {
@@ -124,7 +124,7 @@ export class IngestService {
   */
   async ingest(filePath: string): Promise<void> {
     try {
-      console.log('开始处理文件:', filePath);
+      this.logger.log('开始处理文件:', filePath);
       // 检查文件是否存在
       try {
         await fs.access(filePath);
@@ -148,19 +148,12 @@ export class IngestService {
       } else {
         await this.parseDocument(filePath);
         content = await fs.readFile(newFilePath, 'utf-8');
-        console.log(`已解析文件: ${fileName}`);
+        this.logger.log(`已解析文件: ${fileName}`);
         fileName = `${fileName}-parsed`
       }
 
       // 分割文档
       const chunks = await this.splitMarkdown(content);
-      console.log('chunks的length:', chunks.length);
-
-      console.log('chunks+索引:\n', chunks.map((chunk, index) => `[${index}] ${chunk}`).join('\n'));
-
-      console.log('chunks的原文:\n', chunks);
-
-
 
       // 处理并入库文档
       await this.ingestMarkdownDocuments(chunks, fileName);
@@ -212,9 +205,13 @@ export class IngestService {
       content = this.removeImages(content);
       await fs.writeFile(newFilePath, content, 'utf-8');
 
-      console.log(`文件转换完成: ${newFilePath}`);
+      this.logger.log(`文件转换完成: ${newFilePath}`);
     } catch (error) {
-      throw new Error(`文档解析失败: ${error.message}`);
+      this.logger.error('文档解析失败', error.message);
+      throw new HttpException(
+        `文档解析失败: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

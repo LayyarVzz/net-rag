@@ -14,7 +14,7 @@ export class IngestController {
   @Post('ingest')
   async ingestByPath(@Body() body: { filePath: string }) {
     const { filePath } = body;
-    console.log('Received filePath:', filePath);
+    this.logger.log('Received filePath:', filePath);
     if (!filePath) {
       throw new HttpException(
         '文件路径不能为空',
