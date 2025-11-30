@@ -7,15 +7,49 @@ export class EmbeddingService implements OnModuleInit {
     private readonly logger = new Logger(EmbeddingService.name);
 
     async onModuleInit() {
-        this.embeddings = new OpenAIEmbeddings({
-            model: process.env.EMBEDDING_MODEL,
+        if (process.env.EMBEDDING_MODEL && process.env.EMBEDDING_BASE_URL && process.env.EMBEDDING_API_KEY) {
+            this.embeddings = this.createEmbedding(process.env.EMBEDDING_MODEL, process.env.EMBEDDING_BASE_URL, process.env.EMBEDDING_API_KEY);
+            this.logger.log(`初始化默认嵌入服务，配置信息：MODEL=${process.env.EMBEDDING_MODEL}, BASE_URL=${process.env.EMBEDDING_BASE_URL}`);
+        } else {
+            this.logger.log('未配置嵌入服务');
+        }
+    }
+
+    /**
+     * 创建OpenAIEmbeddings实例
+     * @param model 模型名称
+     * @param baseURL 基础URL
+     * @param apiKey API密钥
+     * @returns OpenAIEmbeddings实例
+     */
+    createEmbedding(model: string, baseURL: string, apiKey: string): OpenAIEmbeddings {
+        return new OpenAIEmbeddings({
+            model: model,
             configuration: {
-                baseURL: process.env.BASE_URL,
-                apiKey: process.env.API_KEY
+                baseURL: baseURL,
+                apiKey: apiKey
             },
             encodingFormat: 'float'
         });
-        this.logger.log(`初始化嵌入服务，配置信息：MODEL=${process.env.EMBEDDING_MODEL}, BASE_URL=${process.env.BASE_URL}`);
+    }
+
+    /**
+     * 更新嵌入服务模型
+     * @param model 新的模型名称
+     * @param baseURL 新的基础URL
+     * @param apiKey 新的API密钥
+     */
+    async updateEmbeddingModel(embedding: OpenAIEmbeddings): Promise<OpenAIEmbeddings> {
+        this.embeddings = embedding;
+        return this.embeddings;
+    }
+
+    /**
+     * 获取当前嵌入服务模型
+     * @returns 当前的OpenAIEmbeddings实例
+     */
+    getEmbeddings(): OpenAIEmbeddings {
+        return this.embeddings;
     }
 
     /**

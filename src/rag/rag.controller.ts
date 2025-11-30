@@ -7,6 +7,11 @@ export class RagController {
 
   constructor(private readonly ragService: RagService) { }
 
+  /**
+   * 获取查询文本的嵌入向量，测试
+   * @param query 查询字符串
+   * @returns 嵌入向量对象
+   */
   @Get('queryTest')
   async getEmbedQuery(@Query('text') query?: string) {
     // 如果没有提供查询参数，则使用默认文本
@@ -27,6 +32,10 @@ export class RagController {
     }
   }
 
+  /**
+   * 重置向量存储，测试
+   * @returns 重置成功消息
+   */
   @Get('resetVectorStore')
   @HttpCode(200)
   async resetVectorStore() {
@@ -44,6 +53,11 @@ export class RagController {
     }
   }
 
+  /**
+   * 基于查询检索文档并使用Rerank排序后，调用LLM生成响应
+   * @param body 请求体，包含查询文本
+   * @returns 包含查询文本和LLM生成响应的对象
+   */
   @Post('retrieve')
   @HttpCode(200)
   async ragChat(@Body() body: { text: string }) {
@@ -71,6 +85,42 @@ export class RagController {
     }
   }
 
+  /**
+   * 调用LLM生成响应
+   * @param body 请求体，包含查询文本
+   * @returns 包含查询文本和LLM生成响应的对象
+   */
+  @Post('chat')
+  @HttpCode(200)
+  async chat(@Body() body: { text: string }) {
+    // 如果没有提供查询参数，则使用默认文本
+    if (!body.text) {
+      this.logger.warn('用户未填写查询文本');
+      // 可以使用NestJS内置的HttpException来设置状态码和错误信息
+      throw new BadRequestException('查询文本不能为空');
+    }
+    try {
+      this.logger.log(`正在处理文本: ${body.text}`);
+      const result = await this.ragService.chat(body.text);
+      this.logger.log(`chat 方法成功`);
+      return {
+        query: body.text,
+        response: result,
+      };
+    } catch (error) {
+      this.logger.error('chat 方法失败', error);
+      throw new BadRequestException({
+        message: 'chat 方法失败',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * 更新LLM模型
+   * @param body 请求体，包含模型参数
+   * @returns 包含设置成功消息和参数的对象
+   */
   @Post('settings/llm')
   @HttpCode(200)
   async setSettings(@Body() body: {
@@ -84,12 +134,16 @@ export class RagController {
       throw new BadRequestException('所有参数都是必填的');
     }
 
-    process.env.BASE_URL = body.baseURL;
-    process.env.API_KEY = body.apiKey;
-    process.env.LLM_MODEL = body.model;
-    console.log('设置llmBASE_URL为:', process.env.BASE_URL);
-    console.log('设置llmAPI_KEY为:', process.env.API_KEY);
-    console.log('设置llmLLM_MODEL为:', process.env.LLM_MODEL);
+    this.logger.log(`设置llm相关参数:baseURL=${body.baseURL}', model='${body.model}`);
+    try {
+      this.ragService.updateLLMModel(body.model, body.baseURL, body.apiKey);
+    } catch (error) {
+      this.logger.error('初始化模型失败', error);
+      throw new BadRequestException({
+        message: '初始化模型失败',
+        error: error.message
+      });
+    }
 
     return {
       message: '设置成功',
@@ -98,6 +152,11 @@ export class RagController {
     };
   }
 
+  /**
+   * 更新Embedding模型
+   * @param body 请求体，包含模型参数
+   * @returns 包含设置成功消息和参数的对象
+   */
   @Post('settings/embedding')
   @HttpCode(200)
   async setEmbeddingSettings(@Body() body: {
@@ -111,13 +170,16 @@ export class RagController {
       throw new BadRequestException('所有参数都是必填的');
     }
 
-    process.env.EMBEDDING_BASE_URL = body.baseURL;
-    process.env.EMBEDDING_API_KEY = body.apiKey;
-    process.env.EMBEDDING_MODEL = body.model;
-
-    console.log('设置EMBEDDING_BASE_URL为:', process.env.EMBEDDING_BASE_URL);
-    console.log('设置EMBEDDING_API_KEY为', process.env.EMBEDDING_API_KEY);
-    console.log('设置EMBEDDING_MODEL为:', process.env.EMBEDDING_MODEL);
+    this.logger.log(`设置Embedding相关参数:baseURL=${body.baseURL}', model='${body.model}`);
+    try {
+      await this.ragService.updateEmbeddingModel(body.model, body.baseURL, body.apiKey);
+    } catch (error) {
+      this.logger.error('更新embedding模型失败', error);
+      throw new BadRequestException({
+        message: '更新embedding模型失败',
+        error: error.message
+      });
+    }
 
     return {
       message: '设置成功',
@@ -126,6 +188,11 @@ export class RagController {
     };
   }
 
+  /**
+   * 更新Reranker模型的API Key
+   * @param body 请求体，包含模型参数
+   * @returns 包含设置成功消息的对象
+   */
   @Post('settings/reranker')
   @HttpCode(200)
   async setRerankerSettings(@Body() body: {
@@ -138,7 +205,7 @@ export class RagController {
     }
 
     process.env.DASHSCOPE_API_KEY = body.apiKey;
-    console.log('设置reranker的DASHSCOPE_API_KEY为:', process.env.DASHSCOPE_API_KEY);
+    this.logger.log(`设置reranker的DASHSCOPE_API_KEY为:${process.env.DASHSCOPE_API_KEY}`);
 
     return {
       message: '设置成功',
