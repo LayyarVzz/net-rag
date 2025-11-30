@@ -3,6 +3,7 @@ import { QdrantVectorStore } from '@langchain/qdrant';
 import { Document } from '@langchain/core/documents';
 import { DocumentInterface } from '@langchain/core/documents';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { OpenAIEmbeddings } from '@langchain/openai';
 
 @Injectable()
 export class QdrantService implements OnModuleInit {
@@ -11,26 +12,48 @@ export class QdrantService implements OnModuleInit {
 
   // 构造函数，接收嵌入模型
   constructor(private readonly embeddingService: EmbeddingService) { }
+
   // nestjs生命周期函数,模块初始化时调用
   async onModuleInit() {
     try {
-      this.vectorStore = await QdrantVectorStore.fromExistingCollection(
-        this.embeddingService, //调入模型实例
-        {
-          url: process.env.QDRANT_URL, //环境变量
-          collectionName: process.env.QDRANT_COLLECTION_NAME,
-        },
-      );
-      this.logger.log('Qdrant向量数据库初始化成功');
+      const embeddings = this.embeddingService.getEmbeddings();
+      if (!embeddings) {
+        this.logger.warn('嵌入模型未初始化，请先配置嵌入模型');
+        throw new HttpException(
+          '嵌入模型未初始化，请先配置嵌入模型',
+          HttpStatus.BAD_REQUEST,
+        );
+      } else {
+        await this.updateQdrantEmbeddingModel(embeddings);
+        this.logger.log(`Qdrant向量数据库初始化成功，使用模型：${embeddings.model}，集合名称：${process.env.QDRANT_COLLECTION_NAME}`);
+      }
     } catch (error) {
       //记录错误日志
       this.logger.error('Qdrant向量数据库初始化失败', error.message);
-      // 抛出http异常
-      throw new HttpException(
-        'Qdrant向量数据库初始化失败,请稍后再试',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
     }
+  }
+
+  /**
+   * 获取当前向量存储实例
+   * @returns QdrantVectorStore 向量存储实例
+   */
+  getVectorStore(): QdrantVectorStore {
+    return this.vectorStore;
+  }
+
+  /**
+   * 更新向量存储中的嵌入模型
+   * @param newEmbeddingService 新的嵌入服务实例
+   */
+  async updateQdrantEmbeddingModel(newEmbedding: OpenAIEmbeddings): Promise<void> {
+    // 重新创建QdrantVectorStore实例
+    this.vectorStore = await QdrantVectorStore.fromExistingCollection(
+      newEmbedding,
+      {
+        url: process.env.QDRANT_URL,
+        collectionName: process.env.QDRANT_COLLECTION_NAME,
+      },
+    );
   }
 
   /**
@@ -80,15 +103,16 @@ export class QdrantService implements OnModuleInit {
  * @param k 返回结果数量，默认为 4
  * @returns 排序后的 DocumentInterface 数组
  */
-  async similaritySearchWithRerank(query: string, k: number = 4): Promise<DocumentInterface[]> {
+  async similaritySearchWithRerank(query: string, k: number): Promise<DocumentInterface[]> {
     try {
       // 进行相似性搜索
       const res = await this.vectorStore.similaritySearch(query, k);
-      this.logger.log('相似性搜索成功');
-      console.log(res);
+      this.logger.log('similaritySearch成功，准备调用Rerank API');
+      // console.log(res);
       // 提取文档
       const documents = res.map(doc => doc.pageContent);
-
+      // console.log('文档:', documents)
+      this.logger.log(`API Key:${process.env.DASHSCOPE_API_KEY ? '已设置' : '未设置'}`);
       // 使用阿里云的rerank API进行排序
       const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank', {
         method: 'POST',
@@ -113,6 +137,7 @@ export class QdrantService implements OnModuleInit {
           }
         })
       });
+      this.logger.log(`Rerank API 响应状态:${response.status}`);
       //如果不是成功状态则抛出错误
       if (!response.ok) {
         // 获取错误详情
@@ -132,6 +157,7 @@ export class QdrantService implements OnModuleInit {
       const rerankedDocs = rankedResults.map(result => res[result.index]);
 
       // 返回经过rerank重排序的文档列表
+      // console.log('rerank结果:', rerankedDocs)
       return rerankedDocs;
 
     } catch (error) {
@@ -157,7 +183,7 @@ export class QdrantService implements OnModuleInit {
       // 返回结果
       return res;
     } catch (error) {
-      this.logger.error('带分数的相似性搜索失败', error.message);
+      this.logger.error('带分数的相似性搜索失败', error);
       throw new HttpException(
         '搜索失败，请稍后再试',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -174,7 +200,7 @@ export class QdrantService implements OnModuleInit {
       // 获取 Qdrant 客户端实例
       const client = this.vectorStore.client;
       const collectionName = process.env.QDRANT_COLLECTION_NAME;
-
+      // console.log('collectionName:', collectionName)
       if (!collectionName) {
         this.logger.error('QDRANT_COLLECTION_NAME 环境变量未定义');
         throw new HttpException(
