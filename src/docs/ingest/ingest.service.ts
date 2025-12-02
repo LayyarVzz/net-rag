@@ -124,7 +124,7 @@ export class IngestService {
   */
   async ingest(filePath: string): Promise<void> {
     try {
-      this.logger.log('开始处理文件:', filePath);
+      this.logger.log(`开始处理文件:${filePath}`);
       // 检查文件是否存在
       try {
         await fs.access(filePath);
