@@ -57,19 +57,22 @@ export class QdrantService implements OnModuleInit {
   }
 
   /**
-   * 添加文档到 Qdrant 向量数据库
-   * @param documents Document 类型数组
-   */
+  * 添加文档到 Qdrant 向量数据库（自动兼容 text-embedding-v4 的 batch≤10 限制）
+  * @param documents Document 类型数组
+  */
   async addDocuments(documents: Document[]): Promise<void> {
+    const BATCH_SIZE = 10; // 阿里云 text-embedding-v4 单次上限
     try {
-      //添加文档
-      await this.vectorStore.addDocuments(documents);
-      this.logger.log('文档添加到Qdrant成功');
+      for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+        const batch = documents.slice(i, i + BATCH_SIZE);
+        this.logger.log(`添加文档批次 ${i / BATCH_SIZE + 1} 到 Qdrant`);
+        await this.vectorStore.addDocuments(batch);
+      }
+      this.logger.log('文档添加到 Qdrant 成功');
     } catch (error) {
-      //输出错误信息
-      this.logger.error('添加文档到Qdrant失败', error.message);
+      this.logger.error('添加文档到 Qdrant 失败', error.message);
       throw new HttpException(
-        '添加文档到Qdrant失败,请稍后再试',
+        '添加文档到 Qdrant 失败，请稍后再试',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
